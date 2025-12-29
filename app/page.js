@@ -584,7 +584,7 @@ const triggerReferralCommissions = async (userId, amount, batch) => {
   // Obtenir le lien d'invitation
   const getInvitationLink = () => {
     const code = getInvitationCode();
-    return `${window.location.origin}/invite/${code}`;
+    return `${url}/invite/${code}`;
   };
 
   if (authLoading || loading) {
