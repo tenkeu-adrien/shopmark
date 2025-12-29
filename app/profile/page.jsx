@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   // Données utilisateur (à remplacer par vos données réelles)
@@ -28,21 +29,33 @@ export default function ProfilePage() {
     actionBalance: "0.0"
   };
 
-
-  const {user:use} = useAuth();
-
-  console.log("User from AuthContext:", use);
-
+  const { user: authUser, logout } = useAuth();
+  const router = useRouter();
+// console.log("user dans ProfilePage.jsx:", user);
+//   console.log("User from AuthContext:", authUser);
+const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT';
   // Options du menu
+  console.log("inviteCode:", inviteCode);
   const menuOptions = [
     { id: 1, icon: Settings, label: "Paramètres", href: "/settings" },
     { id: 2, icon: FileText, label: "Registre des recharges", href: "/recharge-history" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
-    { id: 4, icon: Building, label: "Informations de l'entreprise", href: "/company-info" },
+    { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href: "/support" },
     { id: 6, icon: Users, label: "Invitations", href: "/invitations" },
-    { id: 7, icon: LogOut, label: "Se déconnecter", href: "/auth/login", isLogout: true }
   ];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push(`/invite/${inviteCode}`); // Rediriger vers la page de connexion
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -80,7 +93,7 @@ export default function ProfilePage() {
               <div className="mb-2">
                 <div className="flex items-center text-gray-600 mb-1">
                   <Phone className="w-4 h-4 mr-2" />
-                  <span className="font-medium">{use.phone}</span>
+                  <span className="font-medium">{authUser?.phone || user.phone}</span>
                 </div>
                 <p className="text-sm text-gray-600">
                   Retrait total commandé : <span className="font-bold text-amber-600">${user.totalWithdrawal}</span>
@@ -122,58 +135,51 @@ export default function ProfilePage() {
         </div>
 
         {/* Centre d'Activité */}
-
+        <div className="bg-white rounded-t-2xl border-t border-l border-r border-gray-200 shadow-sm">
+          {/* En-tête de la section */}
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-800">Centre d'activité</h2>
           </div>
-        <div className="bg-white rounded-t-2xl border-t border-l border-r border-gray-200 shadow-sm ">
-          {/* En-tête de la section */}
-        
 
           {/* Liste des options */}
-          <div className="divide-y divide-gray-100 h-[1000px]">
+          <div className="divide-y divide-gray-100">
             {menuOptions.map((option) => {
               const Icon = option.icon;
-              const isLogout = option.isLogout || false;
               
               return (
                 <Link
                   key={option.id}
                   href={option.href}
-                  className={`flex items-center justify-between px-6 py-4 transition-colors duration-200 ${
-                    isLogout 
-                      ? "hover:bg-red-50" 
-                      : "hover:bg-gray-50"
-                  }`}
+                  className="flex items-center justify-between px-6 py-4 transition-colors duration-200 hover:bg-gray-50"
                 >
                   <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                      isLogout 
-                        ? "bg-red-100" 
-                        : "bg-gray-100"
-                    }`}>
-                      <Icon className={`w-5 h-5 ${
-                        isLogout 
-                          ? "text-red-600" 
-                          : "text-gray-600"
-                      }`} />
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-gray-100">
+                      <Icon className="w-5 h-5 text-gray-600" />
                     </div>
-                    <span className={`font-medium ${
-                      isLogout 
-                        ? "text-red-700" 
-                        : "text-gray-700"
-                    }`}>
+                    <span className="font-medium text-gray-700">
                       {option.label}
                     </span>
                   </div>
-                  <ChevronRight className={`w-5 h-5 ${
-                    isLogout 
-                      ? "text-red-400" 
-                      : "text-gray-400"
-                  }`} />
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </Link>
               );
             })}
+            
+            {/* Option Déconnexion avec gestionnaire onClick */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-between w-full px-6 py-4 transition-colors duration-200 hover:bg-red-50 text-left"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-red-100">
+                  <LogOut className="w-5 h-5 text-red-600" />
+                </div>
+                <span className="font-medium text-red-700">
+                  Se déconnecter
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-red-400" />
+            </button>
           </div>
         </div>
       </main>

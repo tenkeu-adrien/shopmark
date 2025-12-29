@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Lock, ChevronDown, Gift, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import Image from 'next/image';
 
 // Liste des 10 codes pays africains + RDC en premier
 const countryCodes = [
@@ -23,8 +25,8 @@ const countryCodes = [
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true); // true = Connexion, false = Inscription
   const [selectedCode, setSelectedCode] = useState(countryCodes[0].code);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState("679438299");
+  const [password, setPassword] = useState('123456');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [invitationCode, setInvitationCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -34,11 +36,58 @@ export default function AuthPage() {
   
   const dropdownRef = useRef(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user, login, signup } = useAuth();
+
+  // Effet pour récupérer le code d'invitation depuis l'URL
+  useEffect(() => {
+    // Vérifier si on est sur la route /invite/[code]
+    const pathSegments = pathname.split('/');
+    
+    if (pathSegments[1] === 'invite' && pathSegments[2]) {
+      // Récupérer le code depuis l'URL
+      const codeFromUrl = pathSegments[2];
+      console.log('Code d\'invitation détecté dans l\'URL:', codeFromUrl);
+      
+      // Basculer automatiquement sur l'onglet inscription
+      setIsLogin(false);
+      
+      // Pré-remplir le code d'invitation
+      setInvitationCode(codeFromUrl);
+      
+      // Afficher un message informatif
+      setError(`Vous êtes invité par un membre SHOPMARK. Code: ${codeFromUrl}`);
+      
+      // Optionnel: Rediriger vers /auth si on est sur /invite/[code]
+      // Cela permet d'avoir une URL propre pour l'authentification
+      // if (pathname !== '/auth') {
+      //   setTimeout(() => {
+      //     router.replace('/auth');
+      //   }, 100);
+      // }
+    }
+    
+    // Récupérer le code depuis les query params (méthode alternative)
+    const codeFromParams = searchParams?.get('code');
+    if (codeFromParams) {
+      console.log('Code d\'invitation détecté dans les query params:', codeFromParams);
+      setIsLogin(false);
+      setInvitationCode(codeFromParams);
+    }
+    
+  }, [pathname, searchParams, router]);
 
   // Rediriger si l'utilisateur est déjà connecté
   useEffect(() => {
     if (user) {
+      // Vérifier s'il y a un code d'invitation dans l'URL
+      const pathSegments = window.location.pathname.split('/');
+      if (pathSegments[1] === 'invite' && pathSegments[2]) {
+        // L'utilisateur est déjà connecté mais a un code d'invitation
+        // Vous pourriez vouloir l'utiliser pour autre chose
+        console.log('Utilisateur connecté avec code d\'invitation:', pathSegments[2]);
+      }
       router.push('/');
     }
   }, [user, router]);
@@ -100,11 +149,34 @@ export default function AuthPage() {
         }
 
         try {
-          const result = await signup(fullPhoneNumber, password, invitationCode);
+          // Vérifier si le code d'invitation est valide
+          let validatedInvitationCode = invitationCode.trim();
+          
+          // Si aucun code fourni mais qu'on a un code dans l'URL, l'utiliser
+          if (!validatedInvitationCode) {
+            const pathSegments = window.location.pathname.split('/');
+            if (pathSegments[1] === 'invite' && pathSegments[2]) {
+              validatedInvitationCode = pathSegments[2];
+            }
+          }
+
+          const result = await signup(fullPhoneNumber, password, validatedInvitationCode);
           
           if (result.success) {
-            console.log('Inscription réussie:', result.user);
-            router.push('/'); // Redirection vers la page d'accueil
+            console.log('Inscription réussie avec code:', validatedInvitationCode);
+            
+            // Message de succès personnalisé
+            if (validatedInvitationCode) {
+              setError(`✅ Inscription réussie ! Vous avez rejoint avec le code ${validatedInvitationCode}`);
+            } else {
+              setError('✅ Inscription réussie !');
+            }
+            
+            // Redirection après un délai
+            setTimeout(() => {
+              router.push('/');
+            }, 1500);
+            
           } else {
             setError(result.error || 'Erreur lors de l\'inscription');
             console.log('Erreur d\'inscription:', result);
@@ -128,10 +200,21 @@ export default function AuthPage() {
       <div className="relative max-w-md w-full space-y-8">
         {/* En-tête avec branding */}
         <div className="text-center">
-          <h1 className="text-5xl font-bold text-amber-500 mb-2 tracking-tight">
-            SHOPMARK
-          </h1>
+          <Image src="/criteo.jpeg" alt="Logo" width={80} height={80} className="mx-auto mb-4" />
           <p className="text-gray-300 text-lg">Votre marketplace premium</p>
+          
+          {/* Afficher le code d'invitation si détecté */}
+          {invitationCode && !isLogin && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-sm text-amber-300 flex items-center justify-center gap-2">
+                <Gift className="h-4 w-4" />
+                <span>Code d'invitation: <strong>{invitationCode}</strong></span>
+              </p>
+              <p className="text-xs text-amber-500/80 mt-1">
+                Vous rejoignez avec une invitation
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Onglets Connexion/Inscription */}
@@ -171,11 +254,21 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {/* Message d'erreur */}
+        {/* Message d'erreur/succès */}
         {error && (
-          <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-            <p className="text-sm text-red-500">{error}</p>
+          <div className={`flex items-center gap-2 p-4 rounded-xl ${
+            error.startsWith('✅') 
+              ? 'bg-green-500/10 border border-green-500/20' 
+              : 'bg-red-500/10 border border-red-500/20'
+          }`}>
+            {error.startsWith('✅') ? (
+              <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            )}
+            <p className={`text-sm ${error.startsWith('✅') ? 'text-green-500' : 'text-red-500'}`}>
+              {error}
+            </p>
           </div>
         )}
 
@@ -309,7 +402,10 @@ export default function AuthPage() {
           {!isLogin && (
             <div>
               <label htmlFor="invitationCode" className="block text-sm font-medium text-gray-300 mb-2">
-                Code d'invitation <span className="text-gray-500 text-sm">(optionnel)</span>
+                Code d'invitation
+                <span className="text-amber-500 text-sm ml-1">
+                  {invitationCode ? '(pré-rempli)' : '(optionnel)'}
+                </span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -319,13 +415,28 @@ export default function AuthPage() {
                   id="invitationCode"
                   name="invitationCode"
                   type="text"
-                  disabled={isLoading}
+                  disabled={isLoading || !!invitationCode}
                   value={invitationCode}
                   onChange={(e) => setInvitationCode(e.target.value)}
-                  className="block w-full pl-12 pr-4 py-4 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`block w-full pl-12 pr-4 py-4 bg-gray-800 border ${
+                    invitationCode ? 'border-amber-500/50' : 'border-gray-700'
+                  } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all ${
+                    isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   placeholder="Entrez un code d'invitation"
+                  readOnly={!!invitationCode} // Empêche la modification si déjà pré-rempli
                 />
+                {invitationCode && (
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                    <Check className="h-5 w-5 text-amber-500" />
+                  </div>
+                )}
               </div>
+              {invitationCode && (
+                <p className="text-xs text-amber-500 mt-2">
+                  Ce code a été détecté depuis votre lien d'invitation
+                </p>
+              )}
             </div>
           )}
 
@@ -380,6 +491,9 @@ export default function AuthPage() {
         <div className="pt-8 border-t border-gray-800 text-center">
           <p className="text-sm text-gray-500">
             © 2024 SHOPMARK - Tous droits réservés
+          </p>
+          <p className="text-xs text-gray-600 mt-2">
+            Accès par invitation uniquement
           </p>
         </div>
       </div>

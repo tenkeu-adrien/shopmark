@@ -18,58 +18,155 @@ import {
   Zap,
   TrendingUp,
   Gift,
+  Smartphone as AirtelIcon,
+  Smartphone as OrangeIcon,
+  Smartphone as MPesaIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
+import { auth } from '@/lib/firebase';
+import { financeService } from '@/lib/financeService';
+import { onAuthStateChanged } from 'firebase/auth';
 
 
 export default function DepotPage() {
   const router = useRouter();
   const [amount, setAmount] = useState("");
+  const [user, setUser] = useState(null);
+  const [userInfo, setUserInfo] = useState({});
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [depositInfo, setDepositInfo] = useState({
-    airtelNumber: "+243 99 876 5432",
-    accountName: "SHOPMARK INVESTMENTS SARL",
-    accountNumber: "CD64 3000 4000 0100 8765 4321 098",
-    cryptoAddress: "0x742d35Cc6634C0532925a3b844Bc9e8eE3a7b1c2",
+    airtelNumber: "0986343739", // Numéro agent Airtel exact
+    orangeNumber: "0841366703", // Numéro agent Orange exact
+    mpesaNumber: "0971234567", // Numéro M-Pesa par défaut
+    transactionId: "", // ID de transaction saisi par l'utilisateur
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
-  const [reference, setReference] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [usdtAmount, setUsdtAmount] = useState(""); // Pour la saisie USDT
+  const [exchangeRate] = useState(2800); // Taux de change USDT → CDF
 
-  const paymentMethods= [
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setUserInfo({
+          uid: currentUser.uid,
+          email: currentUser.email,
+          phone: currentUser.phoneNumber || '',
+          name: currentUser.displayName || ''
+        });
+      } else {
+        router.push('/auth/login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+
+
+  const paymentMethods = [
+    {
+      id: "orange",
+      name: "Orange Money",
+      icon: <OrangeIcon className="w-6 h-6" />,
+      description: "Paiement mobile Orange",
+      processingTime: "Instantané",
+      fees: "0%",
+      minAmount: 6000,
+      maxAmount: 5000000,
+      color: "from-orange-500 to-orange-600",
+      ussdCode: "*144#",
+      agentNumber: "0841366703",
+      instructions: [
+        "1. cadran: *144#",
+        "2. Sélectionnez 2:CDF",
+        "3. Sélectionnez 3:Je retire l'argent",
+        "4. Sélectionnez 1:Retrait Agent(Numéro ou code agent)",
+        "5. Entrer Numéro: 0841366703",
+        "6. Montant CDF: [montant]",
+        "7. Entrer le Code Pin pour confirmer"
+      ]
+    },
     {
       id: "airtel",
       name: "Airtel Money",
-      icon: <Smartphone className="w-6 h-6" />,
-      description: "Dépôt mobile instantané",
+      icon: <AirtelIcon className="w-6 h-6" />,
+      description: "Paiement mobile Airtel",
       processingTime: "Instantané",
-      fees: "1%",
-      minAmount: 1000,
+      fees: "0%",
+      minAmount: 6000,
       maxAmount: 5000000,
       color: "from-red-500 to-red-600",
+      ussdCode: "*501#",
+      agentNumber: "0986343739",
+      instructions: [
+        "1. cadran: *501#",
+        "2. Sélectionnez 2.CDF",
+        "3. Sélectionnez 2.Retrait d'argent",
+        "4. Sélectionnez 1.Aupres d'un Agent",
+        "5. Entrer Code d'agent/numero: 0986343739",
+        "6. Entrer montant: [montant]",
+        "7. Sélectionnez 1.Oui",
+        "8. Entrez votre PIN"
+      ]
     },
     {
-      id: "bank",
-      name: "Virement bancaire",
-      icon: <Banknote className="w-6 h-6" />,
-      description: "Transfert bancaire sécurisé",
-      processingTime: "24h",
+      id: "mpesa",
+      name: "M-Pesa",
+      icon: <MPesaIcon className="w-6 h-6" />,
+      description: "Paiement mobile M-Pesa",
+      processingTime: "Instantané",
       fees: "0%",
-      minAmount: 5000,
-      maxAmount: 10000000,
-      color: "from-blue-500 to-blue-600",
+      minAmount: 6000,
+      maxAmount: 5000000,
+      color: "from-green-500 to-green-600",
+      ussdCode: "*150*60#",
+      agentNumber: "0971234567",
+      instructions: [
+
+"1. Composez le code : Tapez *1122# sur votre téléphone et appuyez sur le bouton d'appel.",
+
+"2. Choisissez votre compte : Sélectionnez votre compte en Francs Congolais (FC).",
+
+"3. Accédez aux paiements : Choisissez l'option « Mes Paiements » (souvent le numéro 5).",
+
+"4. Sélectionnez l'option marchand : Cherchez et choisissez « Payer un Marchand » ou une option similaire, puis (motif), sur motif vous pouvez mettre 'achat produit'. Si on demande le nom du produit, mettez 'PackShop' ou '1' seulement.",
+
+"5. Entrez les détails : Saisissez le montant à payer, puis copiez le numéro indiqué en haut.",
+
+"6. Confirmez la transaction : Vérifiez les détails et entrez votre code PIN M-Pesa pour valider le paiement.",
+
+"7. M-Pesa vous enverra une notification de paiement contenant aussi l'ID de recherche que vous devrez insérer en haut ou à l'endroit recommandé."
+      ]
     },
-    {
+     {
       id: "crypto",
       name: "Crypto-monnaie",
       icon: <Zap className="w-6 h-6" />,
-      description: "Dépôt en USDT/BTC",
+      description: "Dépôt en USDT BEP20",
       processingTime: "15-30min",
-      fees: "0.2%",
-      minAmount: 10000,
-      maxAmount: 50000000,
+      fees: "0%",
+      minAmount: 1, // Minimum en USDT
+      maxAmount: 17857, // Maximum en USDT (50,000,000 CDF / 2800)
       color: "from-amber-500 to-amber-600",
+      walletAddress: "pp20",
+      network: "BEP20",
+      coin: "USDT",
+      instructions: [
+        "1. Ouvrez votre portefeuille crypto (Trust Wallet, Binance, MetaMask, etc.)",
+        "2. Sélectionnez USDT (Tether) pour l'envoi",
+        "3. Vérifiez que le réseau est bien BEP20 (Binance Smart Chain)",
+        "4. Copiez l'adresse de dépôt ci-dessous",
+        "5. Collez l'adresse dans le champ 'destinataire'",
+        "6. Entrez le montant exact en USDT",
+        "7. Vérifiez que le montant correspond au montant en CDF affiché",
+        "8. Confirmez la transaction et payez les frais réseau (BSC)",
+        "9. Après l'envoi, notez l'ID de transaction (TXID/Hash)",
+        "10. Saisissez cet ID dans le champ 'ID de transaction' ci-dessous"
+      ]
     },
   ];
 
@@ -86,21 +183,13 @@ export default function DepotPage() {
     const method = paymentMethods.find(m => m.id === selectedMethod);
     
     if (!method) return 0;
-    
-    switch (method.id) {
-      case "airtel":
-        return Math.round(numericAmount * 0.01);
-      case "bank":
-        return 0;
-      case "crypto":
-        return Math.round(numericAmount * 0.002);
-      default:
-        return 0;
-    }
+    return 0; // Frais à 0% pour tous
   };
 
-  const generateReference = () => {
-    return "DEP" + Date.now().toString().slice(-8);
+  const generateTransactionId = () => {
+    const timestamp = Date.now().toString();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `TRX${timestamp.slice(-8)}${random}`;
   };
 
   const fees = calculateFees();
@@ -112,13 +201,42 @@ export default function DepotPage() {
     return value.toLocaleString("fr-FR");
   };
 
+  // Conversion USDT → CDF
+  const convertUsdtToCdf = (usdt) => {
+    return Math.floor(usdt * exchangeRate);
+  };
+
+  // Conversion CDF → USDT
+  const convertCdfToUsdt = (cdf) => {
+    return (cdf / exchangeRate).toFixed(2);
+  };
+
   const handleAmountChange = (e) => {
     const value = e.target.value.replace(/\D/g, "");
     setAmount(value);
+    if (selectedMethod === "crypto" && value) {
+      const usdtValue = convertCdfToUsdt(parseInt(value));
+      setUsdtAmount(usdtValue);
+    }
+  };
+
+  const handleUsdtAmountChange = (e) => {
+    const value = e.target.value.replace(/[^0-9.]/g, "");
+    setUsdtAmount(value);
+    if (value && !isNaN(value)) {
+      const cdfValue = convertUsdtToCdf(parseFloat(value));
+      setAmount(cdfValue.toString());
+    } else {
+      setAmount("");
+    }
   };
 
   const handleQuickAmount = (quickAmount) => {
     setAmount(quickAmount.toString());
+    if (selectedMethod === "crypto") {
+      const usdtValue = convertCdfToUsdt(quickAmount);
+      setUsdtAmount(usdtValue);
+    }
   };
 
   const copyToClipboard = (text, field) => {
@@ -128,19 +246,35 @@ export default function DepotPage() {
   };
 
   const validateDeposit = () => {
-    if (!numericAmount) {
-      alert("Veuillez saisir un montant à déposer.");
-      return false;
+    // Validation pour les méthodes mobiles
+    if (selectedMethod !== "crypto") {
+      if (!numericAmount) {
+        alert("Veuillez saisir un montant à déposer.");
+        return false;
+      }
+
+      if (selectedMethodData && numericAmount < selectedMethodData.minAmount) {
+        alert(`Le montant minimum est de ${formatAmount(selectedMethodData.minAmount)} CDF.`);
+        return false;
+      }
+
+      if (selectedMethodData && numericAmount > selectedMethodData.maxAmount) {
+        alert(`Le montant maximum est de ${formatAmount(selectedMethodData.maxAmount)} CDF.`);
+        return false;
+      }
     }
 
-    if (selectedMethodData && numericAmount < selectedMethodData.minAmount) {
-      alert(`Le montant minimum est de ${formatAmount(selectedMethodData.minAmount)} CDF.`);
-      return false;
-    }
+    // Validation pour crypto
+    if (selectedMethod === "crypto") {
+      if (!usdtAmount || parseFloat(usdtAmount) < selectedMethodData?.minAmount) {
+        alert(`Le montant minimum est de ${selectedMethodData?.minAmount} USDT (environ ${formatAmount(selectedMethodData?.minAmount * exchangeRate)} CDF).`);
+        return false;
+      }
 
-    if (selectedMethodData && numericAmount > selectedMethodData.maxAmount) {
-      alert(`Le montant maximum est de ${formatAmount(selectedMethodData.maxAmount)} CDF.`);
-      return false;
+      if (parseFloat(usdtAmount) > selectedMethodData?.maxAmount) {
+        alert(`Le montant maximum est de ${selectedMethodData?.maxAmount} USDT (environ ${formatAmount(selectedMethodData?.maxAmount * exchangeRate)} CDF).`);
+        return false;
+      }
     }
 
     if (!selectedMethod) {
@@ -148,39 +282,88 @@ export default function DepotPage() {
       return false;
     }
 
+    if (!transactionId.trim()) {
+      alert("Veuillez saisir l'ID de transaction.");
+      return false;
+    }
+
     return true;
   };
 
-  const handleDeposit = async () => {
+ const handleDeposit = async () => {
     if (!validateDeposit()) return;
+    
+    if (!user) {
+      alert('Veuillez vous connecter pour effectuer un dépôt.');
+      router.push('/auth/login');
+      return;
+    }
 
-    const newReference = generateReference();
-    setReference(newReference);
+    setIsProcessing(true);
 
-    if (selectedMethod === "crypto") {
-      // Pour les crypto, on affiche les instructions
-      alert(
-        `📋 Instructions pour le dépôt crypto\n\n` +
-        `1. Envoyez exactement ${formatAmount(totalToSend)} CDF en USDT\n` +
-        `2. Adresse : ${depositInfo.cryptoAddress}\n` +
-        `3. Référence : ${newReference}\n\n` +
-        `Une fois la transaction confirmée, les fonds seront crédités sur votre compte.`
-      );
-    } else {
-      setIsProcessing(true);
+    try {
+      // Déterminer le montant final en fonction de la méthode
+      let finalAmount = numericAmount;
+      let finalUsdtAmount = null;
+      
+      if (selectedMethod === "crypto") {
+        finalAmount = convertUsdtToCdf(parseFloat(usdtAmount));
+        finalUsdtAmount = parseFloat(usdtAmount);
+      }
 
-      setTimeout(() => {
-        setIsProcessing(false);
+      const depositData = {
+        amount: finalAmount,
+        usdtAmount: finalUsdtAmount,
+        paymentMethod: selectedMethodData?.name || '',
+        agentNumber: getPhoneNumber(),
+        transactionId: transactionId,
+        fees: fees,
+        totalAmount: selectedMethod === "crypto" ? finalAmount : totalToSend,
+        userPhone: userInfo.phone,
+        userEmail: userInfo.email,
+        userName: userInfo.name,
+        exchangeRate: selectedMethod === "crypto" ? exchangeRate : null
+      };
+
+      const result = await financeService.createDeposit(userInfo.uid, depositData);
+
+      setIsProcessing(false);
+
+      if (result.success) {
+        let successMessage = `✅ Dépôt soumis avec succès !\n\n` +
+          `ID Transaction: ${result.depositId}\n`;
         
-        alert(
-          `✅ Dépôt initié !\n\n` +
-          `Montant : ${formatAmount(numericAmount)} CDF\n` +
-          `À envoyer : ${formatAmount(totalToSend)} CDF\n` +
-          `Référence : ${newReference}\n` +
-          `Moyen : ${selectedMethodData?.name}\n\n` +
-          `Suivez les instructions ci-dessous pour compléter le paiement.`
-        );
-      }, 1500);
+        if (selectedMethod === "crypto") {
+          successMessage += `Montant: ${usdtAmount} USDT (≈ ${formatAmount(finalAmount)} CDF)\n`;
+        } else {
+          successMessage += `Montant: ${formatAmount(finalAmount)} CDF\n`;
+        }
+        
+        successMessage += `Moyen: ${selectedMethodData?.name}\n`;
+        
+        if (selectedMethod === "crypto") {
+          successMessage += `Adresse: ${getPhoneNumber()}\n`;
+        } else {
+          successMessage += `Numéro Agent: ${getPhoneNumber()}\n`;
+        }
+        
+        successMessage += `\nVotre dépôt est en attente de validation.\n` +
+          `Vous serez notifié lorsque les fonds seront crédités.`;
+        
+        alert(successMessage);
+        
+        // Réinitialiser le formulaire
+        setAmount("");
+        setUsdtAmount("");
+        setSelectedMethod(null);
+        setTransactionId("");
+        router.push('/');
+      } else {
+        alert(`❌ Erreur: ${result.error}`);
+      }
+    } catch (error) {
+      setIsProcessing(false);
+      alert(`❌ Erreur lors de la soumission: ${error.message}`);
     }
   };
 
@@ -188,6 +371,24 @@ export default function DepotPage() {
     return investmentLevels
       .filter(level => numericAmount >= level.amount)
       .pop();
+  };
+
+  const getPhoneNumber = () => {
+    if (!selectedMethod) return "";
+    switch(selectedMethod) {
+      case "orange": return depositInfo.orangeNumber;
+      case "airtel": return depositInfo.airtelNumber;
+      case "mpesa": return depositInfo.mpesaNumber;
+      case "crypto": return "pp20"; // Portefeuille recharge en USDT BEP20
+      default: return "";
+    }
+  };
+
+  const getInstructions = () => {
+    if (!selectedMethodData) return [];
+    return selectedMethodData.instructions.map(instruction => 
+      instruction.replace("[montant]", selectedMethod === "crypto" ? usdtAmount : formatAmount(totalToSend))
+    );
   };
 
   const recommendedLevel = getRecommendedLevel();
@@ -265,24 +466,62 @@ export default function DepotPage() {
                 Montant à déposer
               </h2>
               
-              {/* Champ de saisie */}
-              <div className="mb-8">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Saisissez le montant
-                </label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <span className="text-2xl font-bold text-gray-900">CDF</span>
+              {/* Champ de saisie pour CDF */}
+              {selectedMethod !== "crypto" && (
+                <div className="mb-8">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Saisissez le montant (minimum 6,000 CDF)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                      <span className="text-2xl font-bold text-gray-900">CDF</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={amount ? formatAmount(numericAmount) : ""}
+                      onChange={handleAmountChange}
+                      placeholder="0"
+                      className="w-full pl-24 pr-4 py-6 text-3xl font-bold text-gray-900 bg-gray-50 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none transition-all text-right"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={amount ? formatAmount(numericAmount) : ""}
-                    onChange={handleAmountChange}
-                    placeholder="0"
-                    className="w-full pl-24 pr-4 py-6 text-3xl font-bold text-gray-900 bg-gray-50 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none transition-all text-right"
-                  />
                 </div>
-              </div>
+              )}
+              
+              {/* Champ de saisie pour USDT (crypto) */}
+              {selectedMethod === "crypto" && (
+                <div className="mb-8">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Saisissez le montant en USDT (minimum 1 USDT)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                      <span className="text-2xl font-bold text-gray-900">USDT</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={usdtAmount}
+                      onChange={handleUsdtAmountChange}
+                      placeholder="0.00"
+                      className="w-full pl-24 pr-4 py-6 text-3xl font-bold text-gray-900 bg-gray-50 border-2 border-gray-300 rounded-xl focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none transition-all text-right"
+                    />
+                  </div>
+                  
+                  {/* Conversion en CDF */}
+                  {usdtAmount && !isNaN(usdtAmount) && (
+                    <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-800 font-medium">Équivalent en CDF :</span>
+                        <span className="text-2xl font-bold text-amber-700">
+                          {formatAmount(convertUsdtToCdf(parseFloat(usdtAmount)))} CDF
+                        </span>
+                      </div>
+                      <p className="text-sm text-amber-600 mt-2">
+                        Taux de change : 1 USDT ≈ {exchangeRate.toLocaleString("fr-FR")} CDF
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Montants rapides */}
               <div>
@@ -306,6 +545,11 @@ export default function DepotPage() {
                         {level && (
                           <div className="text-xs text-gray-500">Niveau {level.level}</div>
                         )}
+                        {selectedMethod === "crypto" && (
+                          <div className="text-xs text-amber-600">
+                            ≈ {convertCdfToUsdt(quickAmount)} USDT
+                          </div>
+                        )}
                       </button>
                     );
                   })}
@@ -314,13 +558,24 @@ export default function DepotPage() {
 
               {/* Objectif recommandé */}
               {selectedMethodData && (
-                <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className={`mt-6 p-4 rounded-xl border ${
+                  selectedMethod === "crypto" 
+                    ? "bg-amber-50 border-amber-200" 
+                    : "bg-blue-50 border-blue-200"
+                }`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-blue-600">🎯</span>
-                    <span className="text-sm font-medium text-blue-700">Objectif recommandé</span>
+                    <span className={selectedMethod === "crypto" ? "text-amber-600" : "text-blue-600"}>🎯</span>
+                    <span className={`text-sm font-medium ${
+                      selectedMethod === "crypto" ? "text-amber-700" : "text-blue-700"
+                    }`}>
+                      Objectif recommandé
+                    </span>
                   </div>
-                  <p className="text-blue-900">
-                    Déposez au moins {formatAmount(selectedMethodData.minAmount)} CDF pour démarrer votre investissement
+                  <p className={selectedMethod === "crypto" ? "text-amber-900" : "text-blue-900"}>
+                    {selectedMethod === "crypto" 
+                      ? `Déposez au moins ${selectedMethodData.minAmount} USDT (≈ ${formatAmount(selectedMethodData.minAmount * exchangeRate)} CDF) pour démarrer`
+                      : `Déposez au moins ${formatAmount(selectedMethodData.minAmount)} CDF pour démarrer votre investissement`
+                    }
                   </p>
                 </div>
               )}
@@ -334,7 +589,7 @@ export default function DepotPage() {
               className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6"
             >
               <h2 className="text-xl font-bold text-gray-900 mb-6">
-                Moyen de dépôt
+                Canal de paiement
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -343,7 +598,16 @@ export default function DepotPage() {
                     key={method.id}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedMethod(method.id)}
+                    onClick={() => {
+                      setSelectedMethod(method.id);
+                      if (method.id === "crypto" && amount) {
+                        // Convertir le montant CDF en USDT
+                        const usdtValue = convertCdfToUsdt(numericAmount);
+                        setUsdtAmount(usdtValue);
+                      } else if (method.id !== "crypto") {
+                        setUsdtAmount("");
+                      }
+                    }}
                     className={`relative p-5 rounded-xl border-2 transition-all ${
                       selectedMethod === method.id
                         ? `border-green-500 bg-gradient-to-br ${method.color} text-white shadow-lg`
@@ -379,6 +643,15 @@ export default function DepotPage() {
                             {method.fees}
                           </span>
                         </div>
+                        <div className="flex items-center justify-between">
+                          <span>Min :</span>
+                          <span className="font-semibold">
+                            {method.id === "crypto" 
+                              ? `${method.minAmount} USDT` 
+                              : `${formatAmount(method.minAmount)} FC`
+                            }
+                          </span>
+                        </div>
                       </div>
                     </div>
                     
@@ -394,156 +667,193 @@ export default function DepotPage() {
 
             {/* Instructions selon le moyen sélectionné */}
             <AnimatePresence>
-              {selectedMethod && (
+              {selectedMethod && selectedMethodData && (
+                (selectedMethod === "crypto" 
+                  ? parseFloat(usdtAmount) >= selectedMethodData.minAmount
+                  : numericAmount >= selectedMethodData.minAmount
+                ) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6"
                 >
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>📋</span>
-                    Instructions pour {selectedMethodData?.name}
+                  <h3 className="text-lg font-bold text-gray-900 mb-6 text-center border-b pb-4">
+                    {selectedMethod === "crypto" 
+                      ? `Instructions de dépôt - ${usdtAmount} USDT`
+                      : `Instructions de recharge - ${formatAmount(totalToSend)} CDF`
+                    }
                   </h3>
                   
-                  {selectedMethod === "airtel" && (
-                    <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Étape 1 - Différent selon la méthode */}
+                    {selectedMethod === "crypto" ? (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Étape 1</h4>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-sm font-medium text-gray-600 mb-2">Copier l'adresse de dépôt :</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-lg font-bold text-gray-900">{selectedMethodData.name}</p>
+                              <div className="mt-2">
+                                <p className="text-sm text-gray-500 mb-1">Portefeuille recharge en USDT BEP20 :</p>
+                                <p className="text-lg font-mono text-gray-900 bg-gray-100 p-2 rounded break-all">
+                               0xBFd95ed5A4a1E789fC36CB00E8A3Ea0314E246A8
+                                </p>
+                              </div>
+                              <div className="mt-2">
+                                <p className="text-sm text-gray-500">Réseau : <span className="font-semibold">BEP20</span></p>
+                                <p className="text-sm text-gray-500">Crypto : <span className="font-semibold">USDT</span></p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Montant à envoyer : <span className="font-bold text-amber-600">{usdtAmount} USDT</span>
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  (≈ {formatAmount(convertUsdtToCdf(parseFloat(usdtAmount)))} CDF)
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => copyToClipboard("pp20", "cryptoAddress")}
+                              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
+                            >
+                              <Copy className="w-4 h-4" />
+                              {copiedField === "cryptoAddress" ? "Copié !" : "Copier"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Étape 1</h4>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-sm font-medium text-gray-600 mb-2">Copier le compte du portefeuille:</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-lg font-bold text-gray-900">{selectedMethodData.name}</p>
+                              <p className="text-xl font-bold text-gray-900 mt-1">{getPhoneNumber()}</p>
+                              <p className="text-sm text-gray-500 mt-1">(Numéro Agent)</p>
+                            </div>
+                            <button
+                              onClick={() => copyToClipboard(getPhoneNumber(), "phone")}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                            >
+                              <Copy className="w-4 h-4" />
+                              {copiedField === "phone" ? "Copié !" : "Copier"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Étape 2 */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Étape 2</h4>
                       <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">
-                            Numéro à créditer
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(depositInfo.airtelNumber, "airtel")}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedField === "airtel" ? "Copié !" : "Copier"}
-                          </button>
-                        </div>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {depositInfo.airtelNumber}
+                        <p className="text-sm font-medium text-gray-600 mb-2">
+                          {selectedMethod === "crypto" 
+                            ? "Entrez l'ID de transaction (TXID/Hash)"
+                            : "Entrez l'ID de transaction"
+                          }
                         </p>
-                      </div>
-                      
-                      <div className="bg-blue-50 rounded-xl p-4">
-                        <h4 className="font-semibold text-blue-900 mb-2">Étapes :</h4>
-                        <ol className="space-y-2 text-sm text-blue-800">
-                          <li className="flex items-start gap-2">
-                            <span className="font-bold">1.</span>
-                            <span>Ouvrez l'application Airtel Money</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="font-bold">2.</span>
-                            <span>Allez dans "Envoyer de l'argent"</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="font-bold">3.</span>
-                            <span>Entrez le numéro ci-dessus</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="font-bold">4.</span>
-                            <span>Saisissez le montant exact : <strong>{formatAmount(totalToSend)} CDF</strong></span>
-                          </li>
-                        </ol>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedMethod === "bank" && (
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">
-                            Bénéficiaire
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(depositInfo.accountName, "beneficiary")}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedField === "beneficiary" ? "Copié !" : "Copier"}
-                          </button>
-                        </div>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {depositInfo.accountName}
-                        </p>
-                      </div>
-                      
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">
-                            Numéro de compte
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(depositInfo.accountNumber, "account")}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedField === "account" ? "Copié !" : "Copier"}
-                          </button>
-                        </div>
-                        <p className="text-lg font-semibold text-gray-900 font-mono">
-                          {depositInfo.accountNumber}
-                        </p>
-                      </div>
-                      
-                      <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="w-5 h-5 text-yellow-600" />
-                          <h4 className="font-semibold text-yellow-900">Important</h4>
-                        </div>
-                        <p className="text-sm text-yellow-800">
-                          Mentionnez la référence <strong>{reference || generateReference()}</strong> dans le libellé du virement
+                        <input
+                          type="text"
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          placeholder={selectedMethod === "crypto" 
+                            ? "Saisissez le TXID/Hash de votre transaction"
+                            : "Saisissez l'ID de votre transaction"
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          {selectedMethod === "crypto"
+                            ? "Cet ID se trouve dans l'historique de votre portefeuille crypto"
+                            : "Cet ID se trouve dans le SMS de confirmation de votre opération"
+                          }
                         </p>
                       </div>
                     </div>
-                  )}
-                  
-                  {selectedMethod === "crypto" && (
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">
-                            Adresse de réception (USDT ERC20)
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(depositInfo.cryptoAddress, "crypto")}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedField === "crypto" ? "Copié !" : "Copier"}
-                          </button>
-                        </div>
-                        <p className="text-sm font-mono text-gray-900 break-all bg-gray-100 p-3 rounded">
-                          {depositInfo.cryptoAddress}
+
+                    {/* Instructions de paiement */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">
+                        {selectedMethod === "crypto" ? "Étapes de transfert :" : "Étapes de paiement :"}
+                      </h4>
+                      <div className={`rounded-xl p-4 border ${
+                        selectedMethod === "crypto" 
+                          ? "bg-amber-50 border-amber-200" 
+                          : "bg-blue-50 border-blue-200"
+                      }`}>
+                        <p className={`text-sm font-medium mb-3 ${
+                          selectedMethod === "crypto" ? "text-amber-900" : "text-blue-900"
+                        }`}>
+                          {selectedMethod === "crypto"
+                            ? "Transfert USDT BEP20 vers notre portefeuille"
+                            : `De ${selectedMethodData.name} à ${selectedMethodData.name}`
+                          }
                         </p>
-                      </div>
-                      
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="text-center">
-                          <QrCode className="w-16 h-16 mx-auto mb-3 text-gray-600" />
-                          <p className="text-sm text-gray-600 mb-2">
-                            Scannez le QR Code pour envoyer les fonds
-                          </p>
+                        <div className="space-y-2">
+                          {getInstructions().map((instruction, index) => (
+                            <p key={index} className={`text-sm ${
+                              selectedMethod === "crypto" ? "text-amber-800" : "text-blue-800"
+                            }`}>
+                              {instruction}
+                            </p>
+                          ))}
                         </div>
-                      </div>
-                      
-                      <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                          <h4 className="font-semibold text-red-900">Attention</h4>
-                        </div>
-                        <ul className="text-sm text-red-800 space-y-1">
-                          <li>• Envoyez seulement USDT (ERC20)</li>
-                          <li>• Vérifiez l'adresse avant d'envoyer</li>
-                          <li>• Les fonds apparaîtront après 12 confirmations</li>
-                        </ul>
                       </div>
                     </div>
-                  )}
+
+                    {/* Avertissements */}
+                    <div className={`rounded-xl p-4 border ${
+                      selectedMethod === "crypto" 
+                        ? "bg-amber-50 border-amber-200" 
+                        : "bg-yellow-50 border-yellow-200"
+                    }`}>
+                      <div className="flex items-start gap-2 mb-2">
+                        <AlertCircle className={`w-5 h-5 mt-0.5 ${
+                          selectedMethod === "crypto" ? "text-amber-600" : "text-yellow-600"
+                        }`} />
+                        <div>
+                          <h4 className={`font-semibold mb-1 ${
+                            selectedMethod === "crypto" ? "text-amber-900" : "text-yellow-900"
+                          }`}>
+                            {selectedMethod === "crypto" 
+                              ? "⚠️ Instructions importantes pour les dépôts crypto"
+                              : "Instructions importantes"
+                            }
+                          </h4>
+                          <ul className={`text-sm space-y-1 ${
+                            selectedMethod === "crypto" ? "text-amber-800" : "text-yellow-800"
+                          }`}>
+                            {selectedMethod === "crypto" ? (
+                              <>
+                                <li>• Envoyez uniquement des USDT sur le réseau BEP20 (Binance Smart Chain)</li>
+                                <li>• N'envoyez pas d'autres cryptomonnaies à cette adresse</li>
+                                <li>• Vérifiez 3 fois l'adresse (pp20) avant d'envoyer</li>
+                                <li>• Les transactions peuvent prendre 15-30 minutes</li>
+                                <li>• Gardez votre TXID/Hash comme preuve de transaction</li>
+                                <li>• Les frais réseau (BSC) sont à votre charge</li>
+                                <li>• Contactez le support en cas de problème ou de retard</li>
+                                <li>• Le montant minimum est de 1 USDT</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>• Le dépôt minimum est de 6 000 CDF</li>
+                                <li>• Vérifiez attentivement le numéro agent avant de confirmer</li>
+                                <li>• Après un virement réussi, saisissez le code de vérification (ID de transaction)</li>
+                                <li>• Si problème, contactez le support avec votre ID de transaction</li>
+                                <li>• Ne transférez jamais d'argent à des particuliers</li>
+                                <li>• Utilisez seulement les numéros agents officiels</li>
+                              </>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
-              )}
+              ))}
             </AnimatePresence>
           </div>
 
@@ -557,16 +867,28 @@ export default function DepotPage() {
               className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 sticky top-8"
             >
               <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">
-                Récapitulatif
+                Dépôt
               </h2>
               
               <div className="space-y-4">
                 {/* Montant déposé */}
                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                  <span className="text-gray-600">Montant à déposer</span>
-                  <span className="text-2xl font-bold text-gray-900">
-                    {formatAmount(numericAmount)} CDF
+                  <span className="text-gray-600">
+                    {selectedMethod === "crypto" ? "Montant en USDT" : "Montant à déposer"}
                   </span>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-gray-900">
+                      {selectedMethod === "crypto" 
+                        ? `${usdtAmount} USDT`
+                        : `${formatAmount(numericAmount)} CDF`
+                      }
+                    </span>
+                    {selectedMethod === "crypto" && usdtAmount && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ≈ {formatAmount(convertUsdtToCdf(parseFloat(usdtAmount)))} CDF
+                      </p>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Frais */}
@@ -582,9 +904,21 @@ export default function DepotPage() {
                 {/* Total à envoyer */}
                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                   <span className="text-gray-600">Total à envoyer</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    {formatAmount(totalToSend)} CDF
-                  </span>
+                  <div className="text-right">
+                    <span className={`text-2xl font-bold ${
+                      selectedMethod === "crypto" ? "text-amber-600" : "text-green-600"
+                    }`}>
+                      {selectedMethod === "crypto" 
+                        ? `${usdtAmount} USDT`
+                        : `${formatAmount(totalToSend)} CDF`
+                      }
+                    </span>
+                    {selectedMethod === "crypto" && usdtAmount && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ≈ {formatAmount(convertUsdtToCdf(parseFloat(usdtAmount)))} CDF
+                      </p>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Moyen */}
@@ -598,16 +932,98 @@ export default function DepotPage() {
                   </div>
                 )}
                 
+                {/* Adresse Crypto ou Numéro Agent */}
+                {selectedMethod && (
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">
+                        {selectedMethod === "crypto" ? "Adresse de dépôt" : "Numéro Agent"}
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(getPhoneNumber(), "summary")}
+                        className="text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        Copier
+                      </button>
+                    </div>
+                    {selectedMethod === "crypto" ? (
+                      <>
+                        <p className="text-xs font-mono text-gray-900 break-all bg-gray-50 p-2 rounded mt-1">
+                          {getPhoneNumber()}
+                        </p>
+                        <div className="mt-2 text-xs text-gray-600">
+                          <p>Réseau: <span className="font-semibold">BEP20</span></p>
+                          <p>Crypto: <span className="font-semibold">USDT</span></p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {getPhoneNumber()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* ID Transaction */}
+                {transactionId && (
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">
+                        {selectedMethod === "crypto" ? "TXID/Hash" : "ID Transaction"}
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(transactionId, "transaction")}
+                        className="text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        Copier
+                      </button>
+                    </div>
+                    <p className="text-sm font-mono text-gray-900 truncate">
+                      {transactionId}
+                    </p>
+                  </div>
+                )}
+                
+                {/* USSD Code (uniquement pour mobile money) */}
+                {selectedMethodData && selectedMethod !== "crypto" && (
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">Code USSD</span>
+                      <button
+                        onClick={() => copyToClipboard(selectedMethodData.ussdCode, "ussd")}
+                        className="text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        Copier
+                      </button>
+                    </div>
+                    <p className="text-sm font-mono text-gray-900 truncate">
+                      {selectedMethodData.ussdCode}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Taux de change pour crypto */}
+                {selectedMethod === "crypto" && (
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Taux de change</span>
+                      <span className="text-sm font-semibold text-gray-900">
+                        1 USDT = {exchangeRate.toLocaleString("fr-FR")} CDF
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Délai */}
                 <div className="pt-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Clock className="w-5 h-5 text-gray-500" />
                     <span className="text-sm text-gray-500">
-                      Délai : {selectedMethodData?.processingTime || "24h"}
+                      Délai : {selectedMethodData?.processingTime || "Instantané"}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 text-center">
-                    Les fonds seront crédités dès réception
+                    Les fonds seront crédités dès réception et vérification
                   </p>
                 </div>
               </div>
@@ -615,10 +1031,25 @@ export default function DepotPage() {
               {/* Bouton de confirmation */}
               <button
                 onClick={handleDeposit}
-                disabled={isProcessing || !numericAmount || !selectedMethod}
+                disabled={isProcessing || 
+                  (selectedMethod === "crypto" 
+                    ? !usdtAmount || parseFloat(usdtAmount) < (selectedMethodData?.minAmount || 0)
+                    : !numericAmount || numericAmount < (selectedMethodData?.minAmount || 0)
+                  ) || 
+                  !selectedMethod || 
+                  !transactionId
+                }
                 className={`w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all ${
-                  isProcessing || !numericAmount || !selectedMethod
+                  isProcessing || 
+                  (selectedMethod === "crypto" 
+                    ? !usdtAmount || parseFloat(usdtAmount) < (selectedMethodData?.minAmount || 0)
+                    : !numericAmount || numericAmount < (selectedMethodData?.minAmount || 0)
+                  ) || 
+                  !selectedMethod || 
+                  !transactionId
                     ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                    : selectedMethod === "crypto"
+                    ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg hover:shadow-xl"
                     : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl"
                 }`}
               >
@@ -628,14 +1059,21 @@ export default function DepotPage() {
                     Traitement en cours...
                   </span>
                 ) : (
-                  "Procéder au dépôt"
+                  "Soumettre"
                 )}
               </button>
               
-              {(!numericAmount || !selectedMethod) && (
+              {(selectedMethod === "crypto" 
+                ? (!usdtAmount || !selectedMethod || !transactionId)
+                : (!numericAmount || !selectedMethod || !transactionId)
+              ) && (
                 <p className="text-sm text-gray-500 text-center mt-3">
-                  {!numericAmount && "Saisissez un montant pour continuer"}
-                  {numericAmount && !selectedMethod && "Sélectionnez un moyen de dépôt"}
+                  {selectedMethod === "crypto"
+                    ? !usdtAmount && "Saisissez un montant en USDT pour continuer"
+                    : !numericAmount && "Saisissez un montant pour continuer"
+                  }
+                  {((selectedMethod === "crypto" && usdtAmount) || (selectedMethod !== "crypto" && numericAmount)) && !selectedMethod && "Sélectionnez un moyen de dépôt"}
+                  {((selectedMethod === "crypto" && usdtAmount) || (selectedMethod !== "crypto" && numericAmount)) && selectedMethod && !transactionId && "Saisissez l'ID de transaction"}
                 </p>
               )}
             </motion.div>
@@ -669,10 +1107,16 @@ export default function DepotPage() {
                   <span>•</span>
                   <span>Historique détaillé disponible</span>
                 </li>
+                {selectedMethod === "crypto" && (
+                  <li className="flex items-start gap-2">
+                    <span>•</span>
+                    <span>Support spécialisé crypto disponible</span>
+                  </li>
+                )}
               </ul>
               
               <button
-                onClick={() => window.open('https://wa.me/243000000000', '_blank')}
+                onClick={() => window.open('https://chat.whatsapp.com/FTZfrDIk81IL1MtC3JjxdR', '_blank')}
                 className="w-full mt-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
                 <span>💬</span>
@@ -709,6 +1153,12 @@ export default function DepotPage() {
                   <span className="text-green-500">✓</span>
                   <span>Support dédié 24h/24</span>
                 </p>
+                {selectedMethod === "crypto" && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-green-500">✓</span>
+                    <span>Dépôt en crypto sans intermédiaire</span>
+                  </p>
+                )}
               </div>
             </motion.div>
           </div>

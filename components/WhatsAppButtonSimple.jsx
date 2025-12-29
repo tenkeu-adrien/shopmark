@@ -10,7 +10,7 @@ export default function WhatsAppButtonSimple() {
   const message = "Bonjour, je souhaite obtenir plus d'informations.";
   
   const handleClick = () => {
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://chat.whatsapp.com/HgpAic0cyjEAz8unk3jaOn`;
     window.open(whatsappUrl, "_blank");
   };
 
@@ -25,7 +25,7 @@ export default function WhatsAppButtonSimple() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={handleClick}
-        className="bg-gradient-to-r from-green-500 to-green-600 text-white  rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 group relative mb-35"
+        className="bg-gradient-to-r  cursor-pointer from-green-500 to-green-600 text-white  rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 group relative mb-35"
       >
 
         <Image src="/whatsapp.png"  width={60} height={60} placeholder="blur" blurDataURL="data:image/png;base64,..." alt="whatsapp"/>

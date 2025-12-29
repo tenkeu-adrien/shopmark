@@ -1,103 +1,254 @@
 "use client";
 
-import { Copy, Users, DollarSign, ChevronRight, Crown, UserCheck, Landmark } from "lucide-react";
-import { useState } from "react";
+import { Copy, Users, DollarSign, ChevronRight, Crown, UserCheck, Landmark, TrendingUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  doc,
+  getDoc
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function TeamSection() {
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
-  
-  // Données simulées
-  const invitationCode = "INVITE-XYZ789";
-  const invitationLink = "https://votresite.com/invite/XYZ789";
-  const teamMembers = 0;
-  const totalRevenue = 0;
-  
-  // Données des niveaux
-  const teamLevels = [
-    {
-      level: 1,
-      commissionRate: 10,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 2,
-      commissionRate: 15,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 3,
-      commissionRate: 20,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 4,
-      commissionRate: 25,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 5,
-      commissionRate: 30,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 6,
-      commissionRate: 35,
-      validUsers: 0,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    },
-    {
-      level: 7,
-      commissionRate: 40,
-      validUsers: 1,
-      revenue: 0,
-      color: "from-orange-500 to-amber-400",
-      iconColor: "text-orange-500"
-    }
-  ];
+  const [teamData, setTeamData] = useState({
+    invitationCode: "",
+    invitationLink: "",
+    teamMembers: { level1: 0, level2: 0, level3: 0, total: 0 },
+    totalRevenue: 0,
+    commissionEarned: 0,
+    levels: []
+  });
+  const [loading, setLoading] = useState(true);
+  const url = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopmark.fr';
 
-  const copyToClipboard = () => {
-    const textToCopy = `Code: ${invitationCode}\nLien: ${invitationLink}`;
-    navigator.clipboard.writeText(textToCopy);
+  console.log("teamData dans TeamSection.jsx:", teamData);
+
+  // Charger les données de l'équipe
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const loadTeamData = async () => {
+      try {
+        // 1. Charger le profil utilisateur pour le code d'invitation
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        
+        const invitationCode = userData.invitationCode || user.uid.substring(0, 8).toUpperCase();
+        const invitationLink = `${url}/invite/${invitationCode}`;
+
+        // 2. Calculer les membres par niveau ET leurs investissements totaux
+        const { level1, level2, level3, level1Investment, level2Investment, level3Investment } = 
+          await calculateTeamMembersAndInvestments(user.uid);
+
+        // 3. Calculer les revenus de commission
+        const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
+        const walletData = walletDoc.exists() ? walletDoc.data() : {};
+        const commissionEarned = walletData.stats?.referralEarnings || 0;
+        const totalRevenue = commissionEarned + (walletData.stats?.totalEarned || 0);
+
+        // 4. Préparer les données des niveaux de commission AVEC CORRECTION
+        const levels = prepareCommissionLevelsCorrected(
+          level1, level2, level3,
+          level1Investment, level2Investment, level3Investment
+        );
+
+        setTeamData({
+          invitationCode,
+          invitationLink,
+          teamMembers: {
+            level1,
+            level2,
+            level3,
+            total: level1 + level2 + level3
+          },
+          totalRevenue,
+          commissionEarned,
+          levels
+        });
+
+      } catch (error) {
+        console.error('Erreur chargement données équipe:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeamData();
+  }, [user]);
+
+  // Calculer les membres de l'équipe ET leurs investissements totaux
+  const calculateTeamMembersAndInvestments = async (userId) => {
+    try {
+      // Niveau 1 (direct)
+      const level1Query = query(
+        collection(db, 'users'),
+        where('referrerId', '==', userId)
+      );
+      const level1Snap = await getDocs(level1Query);
+      const level1Count = level1Snap.docs.length;
+      const level1Users = level1Snap.docs.map(doc => doc.id);
+
+      // Récupérer les investissements des membres niveau 1
+      let level1Investment = 0;
+      for (const level1UserId of level1Users) {
+        const userLevelsQuery = query(
+          collection(db, 'user_levels'),
+          where('userId', '==', level1UserId)
+        );
+        const userLevelsSnap = await getDocs(userLevelsQuery);
+        if (!userLevelsSnap.empty) {
+          // Prendre le premier investissement (isFirstInvestment = true)
+          const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+          if (firstInvestment) {
+            level1Investment += firstInvestment.data().investedAmount || 0;
+          }
+        }
+      }
+
+      // Niveau 2
+      let level2Count = 0;
+      let level2Users = [];
+      let level2Investment = 0;
+      
+      if (level1Users.length > 0) {
+        const level2Query = query(
+          collection(db, 'users'),
+          where('referrerId', 'in', level1Users.slice(0, 10))
+        );
+        const level2Snap = await getDocs(level2Query);
+        level2Count = level2Snap.docs.length;
+        level2Users = level2Snap.docs.map(doc => doc.id);
+
+        // Récupérer les investissements des membres niveau 2
+        for (const level2UserId of level2Users) {
+          const userLevelsQuery = query(
+            collection(db, 'user_levels'),
+            where('userId', '==', level2UserId)
+          );
+          const userLevelsSnap = await getDocs(userLevelsQuery);
+          if (!userLevelsSnap.empty) {
+            const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+            if (firstInvestment) {
+              level2Investment += firstInvestment.data().investedAmount || 0;
+            }
+          }
+        }
+      }
+
+      // Niveau 3
+      let level3Count = 0;
+      let level3Investment = 0;
+      
+      if (level2Users.length > 0) {
+        const level3Query = query(
+          collection(db, 'users'),
+          where('referrerId', 'in', level2Users.slice(0, 10))
+        );
+        const level3Snap = await getDocs(level3Query);
+        level3Count = level3Snap.docs.length;
+        const level3Users = level3Snap.docs.map(doc => doc.id);
+
+        // Récupérer les investissements des membres niveau 3
+        for (const level3UserId of level3Users) {
+          const userLevelsQuery = query(
+            collection(db, 'user_levels'),
+            where('userId', '==', level3UserId)
+          );
+          const userLevelsSnap = await getDocs(userLevelsQuery);
+          if (!userLevelsSnap.empty) {
+            const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+            if (firstInvestment) {
+              level3Investment += firstInvestment.data().investedAmount || 0;
+            }
+          }
+        }
+      }
+
+      return { 
+        level1: level1Count, 
+        level2: level2Count, 
+        level3: level3Count,
+        level1Investment,
+        level2Investment, 
+        level3Investment
+      };
+    } catch (error) {
+      console.error('Erreur calcul membres:', error);
+      return { 
+        level1: 0, level2: 0, level3: 0,
+        level1Investment: 0, level2Investment: 0, level3Investment: 0
+      };
+    }
+  };
+
+  // FONCTION CORRIGÉE : Préparer les données des niveaux de commission
+  const prepareCommissionLevelsCorrected = (level1, level2, level3, level1Investment, level2Investment, level3Investment) => {
+    const commissionRates = [3, 2, 1]; // 3%, 2%, 1%
+    const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
+    const colors = [
+      { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
+      { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
+      { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
+    ];
+
+    // CALCUL CORRECT : Utiliser les montants d'investissement réels par niveau
+    return [0, 1, 2].map((index) => {
+      const validUsers = index === 0 ? level1 : index === 1 ? level2 : level3;
+      const totalInvestment = index === 0 ? level1Investment : 
+                             index === 1 ? level2Investment : 
+                             level3Investment;
+      
+      // REVENU RÉEL = Total investi × Taux de commission
+      const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
+      
+      return {
+        level: levelNames[index],
+        commissionRate: commissionRates[index],
+        validUsers: validUsers,
+        revenue: revenue,
+        totalInvestment: totalInvestment, // Pour débogage si nécessaire
+        color: colors[index].gradient,
+        iconColor: colors[index].iconColor,
+        levelNumber: index + 1
+      };
+    });
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'CDF', // ou 'XOF' selon la zone
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'CDF',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement des données de l'équipe...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         
-        {/* En-tête de la page */}
-        {/* <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Équipe</h1>
-          <p className="text-gray-600 mt-2">Gérez votre réseau et consultez vos statistiques</p>
-        </div> */}
-
         {/* 1. Carte - Code d'invitation */}
         <div className="bg-gradient-to-r from-orange-50 to-cyan-50 rounded-2xl p-5 md:p-6 mb-8 shadow-sm border border-blue-100">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -106,10 +257,17 @@ const formatCurrency = (amount) => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">
                   Code d&apos;invitation :
                 </h3>
-                <div className="flex items-center gap-3  text-[3px]">
-                  <code className="text-xl font-bold text-orange-600 bg-white px-4 py-2 rounded-lg border border-blue-200 text-[10px]">
-                    {invitationCode}
+                <div className="flex items-center gap-3">
+                  <code className="text-xl font-bold text-orange-600 bg-white px-4 py-2 rounded-lg border border-blue-200">
+                    {teamData.invitationCode}
                   </code>
+                  <button
+                    onClick={() => copyToClipboard(teamData.invitationCode)}
+                    className="p-2 hover:bg-white rounded-lg transition-colors"
+                    title="Copier le code"
+                  >
+                    <Copy className="w-5 h-5 text-gray-600" />
+                  </button>
                 </div>
               </div>
               
@@ -117,103 +275,139 @@ const formatCurrency = (amount) => {
                 <p className="text-gray-700 font-medium mb-2">Lien d&apos;invitation :</p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <div className="bg-white px-4 py-3 rounded-lg border border-gray-200 flex-1 overflow-hidden">
-                    <p className="text-gray-600 truncate text-[10px]">{invitationLink}</p>
+                    <p className="text-gray-600 truncate text-sm">{teamData.invitationLink}</p>
                   </div>
+                  <button
+                    onClick={() => copyToClipboard(teamData.invitationLink)}
+                    className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Copier le lien
+                  </button>
                 </div>
               </div>
             </div>
             
-            <button
-              onClick={copyToClipboard}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all ${
-                copied 
-                  ? 'bg-orange-500 text-white text-[10px]' 
-                  : 'bg-orange-400 text-white hover:bg-orange-500 active:scale-95'
-              }`}
-            >
-              {copied ? (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copié !
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Copier
-                </>
-              )}
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => copyToClipboard(`${teamData.invitationCode}\n${teamData.invitationLink}`)}
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all ${
+                  copied 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-orangee-500 text-white hover:bg-orange-600 active:scale-95'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copié !
+                  </>
+                ) : (
+                  <>
+                    {/* <Copy className="w-5 h-5" /> */}
+                    {/* Tout copier */}
+                  </>
+                )}
+              </button>
+              
+            </div>
           </div>
-          
-          <p className="text-sm text-gray-500 mt-4">
-            Partagez ce code ou ce lien pour inviter de nouveaux membres dans votre équipe
-          </p>
         </div>
 
         {/* 2. Statistiques - Résumé équipe */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
-          {/* Carte 1: Membres */}
+          {/* Carte 1: Membres totaux */}
           <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center gap-4">
               <div className="bg-blue-100 p-3 rounded-xl">
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-gray-500 text-sm font-medium">Membres de l&apos;équipe</p>
+                <p className="text-gray-500 text-sm font-medium">Membres totaux</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-lg font-bold text-gray-900">{teamMembers}</span>
+                  <span className="text-2xl font-bold text-gray-900">{teamData.teamMembers.total}</span>
                   <span className="text-gray-500">personnes</span>
                 </div>
               </div>
             </div>
-            {/* <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-sm text-gray-600">
-                <span className="text-green-500 font-medium">+3</span> nouveaux ce mois-ci
-              </p>
-            </div> */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold text-blue-600">{teamData.teamMembers.level1}</p>
+                  <p className="text-xs text-gray-500">Niveau 1</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-green-600">{teamData.teamMembers.level2}</p>
+                  <p className="text-xs text-gray-500">Niveau 2</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-purple-600">{teamData.teamMembers.level3}</p>
+                  <p className="text-xs text-gray-500">Niveau 3</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Carte 2: Revenu total */}
+          {/* Carte 2: Revenu parrainage */}
           <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center gap-4">
               <div className="bg-green-100 p-3 rounded-xl">
-                <Landmark  className="w-6 h-6 text-green-600"  />
+                <Landmark className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-gray-500 text-sm font-medium">Revenu total</p>
+                <p className="text-gray-500 text-sm font-medium">Revenu parrainage</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-lg font-bold text-gray-900">
-                    {formatCurrency(totalRevenue)}
-                    {/* {totalRevenue} CDF */}
+                  <span className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(teamData.commissionEarned)}
                   </span>
                 </div>
               </div>
             </div>
-            {/* <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-sm text-gray-600">
-                <span className="text-green-500 font-medium">+15%</span> par rapport au mois dernier
+                Commission totale perçue
               </p>
-            </div> */}
+            </div>
           </div>
+
+          {/* Carte 3: Revenu total */}
+          {/* <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="bg-purple-100 p-3 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Revenu total</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(teamData.totalRevenue)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-sm text-gray-600">
+                Inclut parrainage + investissements
+              </p>
+            </div>
+          </div> */}
         </div>
 
         {/* 3. Titre - Détails de l'équipe */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">Détails de l&apos;équipe</h2>
-            <p className="text-gray-600 mt-1">Statistiques détaillées par niveau</p>
+            <p className="text-gray-600 mt-1">Statistiques détaillées par niveau de commission</p>
           </div>
-          <div className="flex items-center text-gray-400">
-            <ChevronRight className="w-5 h-5" />
-            <ChevronRight className="w-5 h-5 -ml-3" />
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Profondeur maximale: 3 niveaux</p>
           </div>
         </div>
 
-        {/* 4. Cartes niveaux */}
-        <div className="space-y-4">
-          {teamLevels.map((level) => (
+        {/* 4. Cartes niveaux de commission - AVEC AFFICHAGE CORRECT */}
+        <div className="space-y-4 mb-16">
+          {teamData.levels.map((level) => (
             <div 
               key={level.level} 
               className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
@@ -223,7 +417,7 @@ const formatCurrency = (amount) => {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-lg">
-                      <span className="text-white font-bold">LV{level.level}</span>
+                      <span className="text-white font-bold">{level.level}</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -242,13 +436,18 @@ const formatCurrency = (amount) => {
                       <Crown className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-900">Niveau {level.level}</h3>
-                      <p className="text-sm text-gray-500">Commission: {level.commissionRate}%</p>
+                      <h3 className="font-bold text-gray-900">{level.level}</h3>
+                      <p className="text-sm text-gray-500">
+                        Commission: {level.commissionRate}% sur chaque premier investissement
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">Revenu du niveau</p>
+                    <p className="text-sm text-gray-500">Revenu de ce niveau</p>
                     <p className="text-lg font-bold text-gray-900">{formatCurrency(level.revenue)}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {level.validUsers > 0 ? `Sur ${level.validUsers} membre(s)` : 'Aucun investissement'}
+                    </p>
                   </div>
                 </div>
 
@@ -256,34 +455,35 @@ const formatCurrency = (amount) => {
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-600">Utilisateurs valides</span>
+                    <span className="text-gray-600">Membres à ce niveau</span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-semibold text-gray-900">{level.validUsers} personnes</span>
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="font-semibold text-gray-900">{level.validUsers} personne(s)</span>
+                    {level.validUsers > 0 && (
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    )}
                   </div>
                 </div>
 
-                {/* Barre de progression (optionnelle) */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm text-gray-500 mb-1">
-                    <span>Progression</span>
-                    <span>{Math.round((level.validUsers / teamMembers) * 100)}%</span>
+                {/* Information supplémentaire avec calcul explicite */}
+                {level.validUsers > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-sm text-blue-700 mb-1 font-medium">
+                      💡 Calcul détaillé :
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      {level.commissionRate}% × {level.validUsers} membre(s) ayant investi
+                      {level.revenue > 0 ? ` = ${formatCurrency(level.revenue)}` : ''}
+                    </p>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full bg-gradient-to-r ${level.color}`}
-                      style={{ width: `${Math.min(100, (level.validUsers / teamMembers) * 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           ))}
         </div>
 
         {/* Note d'information */}
-        <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100 mb-28">
           <div className="flex items-start gap-3">
             <div className="bg-blue-100 p-2 rounded-lg">
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,10 +491,24 @@ const formatCurrency = (amount) => {
               </svg>
             </div>
             <div>
-              <p className="font-medium text-gray-900 mb-1">Comment fonctionnent les niveaux ?</p>
-              <p className="text-sm text-gray-600">
-                Chaque niveau représente un rang dans votre équipe. Plus vous montez de niveau, 
-                plus votre taux de commission augmente. Les statistiques sont mises à jour quotidiennement.
+              <p className="font-medium text-gray-900 mb-1">Comment fonctionne le parrainage ?</p>
+              <p className="text-sm text-gray-600 mb-2">
+                Votre réseau est limité à 3 niveaux de profondeur :
+              </p>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• <strong>Niveau 1 (Menbre A)</strong> : 3% de commission sur le premier investissement de chaque filleul direct</li>
+                <li>• <strong>Niveau 2 (Menbre B)</strong> : 2% de commission sur le premier investissement des filleuls de vos filleuls</li>
+                <li>• <strong>Niveau 3 (Menbre C)</strong> : 1% de commission sur le premier investissement des filleuls de niveau 3</li>
+              </ul>
+              <div className="mt-3 p-2 bg-yellow-50 rounded border border-yellow-200">
+                <p className="text-xs text-yellow-800 font-medium">
+                  📊 Affichage corrigé : Les revenus affichés correspondent maintenant au calcul réel 
+                  (montant investi × taux de commission) et non plus à une estimation.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Les commissions sont versées automatiquement sur votre portefeuille 
+                dès qu'un membre parrainé effectue son premier investissement.
               </p>
             </div>
           </div>

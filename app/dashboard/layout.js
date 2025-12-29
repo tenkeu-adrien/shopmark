@@ -38,13 +38,13 @@ export default function DashboardLayout({ children }) {
       current: pathname.startsWith('/dashboard/utilisateurs'),
       badge: 24,
     },
-    {
-      name: 'Ressources',
-      href: '/dashboard/ressources',
-      icon: Package,
-      current: pathname.startsWith('/dashboard/ressources'),
-      badge: 12,
-    },
+    // {
+    //   name: 'Ressources',
+    //   href: '/dashboard/ressources',
+    //   icon: Package,
+    //   current: pathname.startsWith('/dashboard/ressources'),
+    //   badge: 12,
+    // },
     {
       name: 'Transactions',
       href: '/dashboard/transactions',
@@ -52,18 +52,18 @@ export default function DashboardLayout({ children }) {
       current: pathname.startsWith('/dashboard/transactions'),
       badge: 42,
     },
-    {
-      name: 'Statistiques',
-      href: '/dashboard/statistiques',
-      icon: BarChart3,
-      current: pathname.startsWith('/dashboard/statistiques'),
-    },
-    {
-      name: 'Paramètres',
-      href: '/dashboard/parametres',
-      icon: Settings,
-      current: pathname.startsWith('/dashboard/parametres'),
-    },
+    // {
+    //   name: 'Statistiques',
+    //   href: '/dashboard/statistiques',
+    //   icon: BarChart3,
+    //   current: pathname.startsWith('/dashboard/statistiques'),
+    // },
+    // {
+    //   name: 'Paramètres',
+    //   href: '/dashboard/parametres',
+    //   icon: Settings,
+    //   current: pathname.startsWith('/dashboard/parametres'),
+    // },
   ];
 
   const secondaryNavigation = [
@@ -133,7 +133,7 @@ export default function DashboardLayout({ children }) {
               >
                 <item.icon className="w-5 h-5 mr-3" />
                 <span className="flex-1">{item.name}</span>
-                {item.badge && (
+                {/* {item.badge && (
                   <span className={`
                     px-2 py-1 text-xs font-semibold rounded-full
                     ${item.current 
@@ -143,23 +143,14 @@ export default function DashboardLayout({ children }) {
                   `}>
                     {item.badge}
                   </span>
-                )}
+                )} */}
               </a>
             ))}
           </nav>
 
           {/* Navigation secondaire */}
           <div className="p-4 border-t border-gray-200 shrink-0">
-            {secondaryNavigation.map((item) => (
-              <button
-                key={item.name}
-                onClick={item.onClick}
-                className="w-full flex items-center px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 text-left"
-              >
-                <item.icon className="w-5 h-5 mr-3" />
-                {item.name}
-              </button>
-            ))}
+           
 
             {/* Status système */}
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">

@@ -60,7 +60,7 @@ export default function HeroWithNavbar({title,content,image}) {
             <motion.a
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              href="/#contact"
+              href="tel:+447412830186"
               className="bg-orange-600 px-6 py-3 rounded-xl text-white shadow-lg"
             >
               Nous contacter
