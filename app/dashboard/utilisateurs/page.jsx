@@ -1,4 +1,3 @@
-// app/dashboard/utilisateurs/page.js
 "use client";
 
 import { 
@@ -60,7 +59,6 @@ export default function UtilisateursPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   
-  // États pour les modales
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -69,7 +67,6 @@ export default function UtilisateursPage() {
   const [userTransactions, setUserTransactions] = useState([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
   
-  // Formulaire d'édition
   const [editForm, setEditForm] = useState({
     phone: '',
     email: '',
@@ -79,7 +76,6 @@ export default function UtilisateursPage() {
     invitationCode: ''
   });
 
-  // Charger les utilisateurs
   useEffect(() => {
     loadUsers();
   }, []);
@@ -102,12 +98,10 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Charger les détails complets d'un utilisateur
   const loadUserDetails = async (userId) => {
     try {
       setDrawerLoading(true);
       
-      // 1. Charger l'utilisateur
       const userDoc = await getDoc(doc(db, 'users', userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -116,18 +110,16 @@ export default function UtilisateursPage() {
           ...userData
         });
         
-        // Pré-remplir le formulaire d'édition
         setEditForm({
           phone: userData.phone || '',
           email: userData.email || '',
           displayName: userData.displayName || '',
           role: userData.role || 'user',
           status: userData.status || 'active',
-          invitationCode: userData.invitationCode || ''
+          invitationCode: userData?.invitationCode || ''
         });
       }
 
-      // 2. Charger le wallet
       const walletDoc = await getDoc(doc(db, 'wallets', userId));
       if (walletDoc.exists()) {
         const walletData = walletDoc.data();
@@ -142,7 +134,6 @@ export default function UtilisateursPage() {
         });
       }
 
-      // 3. Charger les transactions récentes
       const transactionsQuery = query(
         collection(db, 'transactions'),
         where('userId', '==', userId),
@@ -162,21 +153,18 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Ouvrir la modale de visualisation
   const handleViewUser = async (user) => {
     setSelectedUser(user);
     await loadUserDetails(user.id);
     setViewDrawerOpen(true);
   };
 
-  // Ouvrir la modale d'édition
   const handleEditUser = async (user) => {
     setSelectedUser(user);
     await loadUserDetails(user.id);
     setEditDrawerOpen(true);
   };
 
-  // Sauvegarder les modifications
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
     
@@ -191,7 +179,7 @@ export default function UtilisateursPage() {
       
       alert('Utilisateur mis à jour avec succès !');
       setEditDrawerOpen(false);
-      await loadUsers(); // Recharger la liste
+      await loadUsers();
     } catch (error) {
       console.error('Erreur mise à jour:', error);
       alert('Erreur lors de la mise à jour');
@@ -200,7 +188,6 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Gérer les actions sur les utilisateurs
   const handleUserAction = async (action, userId) => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
@@ -235,7 +222,6 @@ export default function UtilisateursPage() {
           alert(`${user.displayName || user.email || user.phone} suspendu !`);
           break;
         case 'delete':
-          // Supprimer aussi le wallet associé
           const walletRef = doc(db, 'wallets', userId);
           await deleteDoc(walletRef);
           await deleteDoc(userRef);
@@ -252,7 +238,6 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Actions groupées
   const handleBulkAction = async (action) => {
     if (selectedUsers.length === 0) {
       alert('Veuillez sélectionner au moins un utilisateur');
@@ -300,7 +285,6 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Filtrer les utilisateurs
   const filteredUsers = users.filter(user => {
     if (filter !== 'all' && user.status !== filter) return false;
     if (search) {
@@ -316,7 +300,6 @@ export default function UtilisateursPage() {
     return true;
   });
 
-  // Utilitaires d'affichage
   const roleColors = {
     admin: 'bg-red-100 text-red-800',
     moderator: 'bg-purple-100 text-purple-800',
@@ -361,7 +344,6 @@ export default function UtilisateursPage() {
     }
   };
 
-  // Stats
   const stats = {
     total: users.length,
     active: users.filter(u => u.status === 'active').length,
@@ -376,75 +358,75 @@ export default function UtilisateursPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Utilisateurs</h1>
-          <p className="text-gray-600 mt-1">Gestion des utilisateurs</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Utilisateurs</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Gestion des utilisateurs</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button 
             onClick={loadUsers}
             disabled={actionLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm sm:text-base"
           >
             <RefreshCw className="w-4 h-4" />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
           <Link 
             href="/dashboard/utilisateurs/nouveau"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base"
           >
             <UserPlus className="w-4 h-4" />
-            Nouvel utilisateur
+            <span>Nouvel utilisateur</span>
           </Link>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-500">Total</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-500">Total</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-500">Actifs</p>
-          <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-500">Actifs</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.active}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-500">Suspendus</p>
-          <p className="text-2xl font-bold text-red-600">{stats.suspended}</p>
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-500">Suspendus</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.suspended}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-500">Admins</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.admins}</p>
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-500">Admins</p>
+          <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.admins}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-500">Nouveaux (jour)</p>
-          <p className="text-2xl font-bold text-purple-600">{stats.today}</p>
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+          <p className="text-xs sm:text-sm text-gray-500">Nouveaux</p>
+          <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.today}</p>
         </div>
       </div>
 
       {/* Filtres et recherche */}
       <DashboardCard>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 sm:w-5 h-4 sm:h-5" />
               <input
                 type="text"
-                placeholder="Rechercher par nom, email ou téléphone..."
+                placeholder="Rechercher..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -452,7 +434,7 @@ export default function UtilisateursPage() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Tous les statuts</option>
               <option value="active">Actifs</option>
@@ -464,38 +446,38 @@ export default function UtilisateursPage() {
         
         {/* Actions groupées */}
         {selectedUsers.length > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="font-medium text-blue-900">
-                  {selectedUsers.length} utilisateur(s) sélectionné(s)
+                <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600 mr-2" />
+                <span className="font-medium text-blue-900 text-sm sm:text-base">
+                  {selectedUsers.length} sélectionné(s)
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1 sm:gap-2">
                 <button 
                   onClick={() => handleBulkAction('activate')}
                   disabled={actionLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 text-sm disabled:opacity-50"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 text-xs sm:text-sm disabled:opacity-50"
                 >
-                  <Unlock className="w-4 h-4" />
-                  {actionLoading ? 'Traitement...' : 'Activer'}
+                  <Unlock className="w-3 sm:w-4 h-3 sm:h-4" />
+                  <span className="hidden sm:inline">Activer</span>
                 </button>
                 <button 
                   onClick={() => handleBulkAction('suspend')}
                   disabled={actionLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 text-sm disabled:opacity-50"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 text-xs sm:text-sm disabled:opacity-50"
                 >
-                  <Ban className="w-4 h-4" />
-                  {actionLoading ? 'Traitement...' : 'Suspendre'}
+                  <Ban className="w-3 sm:w-4 h-3 sm:h-4" />
+                  <span className="hidden sm:inline">Suspendre</span>
                 </button>
                 <button 
                   onClick={() => handleBulkAction('delete')}
                   disabled={actionLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm disabled:opacity-50"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-xs sm:text-sm disabled:opacity-50"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  {actionLoading ? 'Traitement...' : 'Supprimer'}
+                  <Trash2 className="w-3 sm:w-4 h-3 sm:h-4" />
+                  <span className="hidden sm:inline">Supprimer</span>
                 </button>
               </div>
             </div>
@@ -505,169 +487,156 @@ export default function UtilisateursPage() {
 
       {/* Table des utilisateurs */}
       <DashboardCard>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Utilisateur
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rôle
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Statut
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Inscription
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(user.id)}
-                        onChange={() => toggleUserSelection(user.id)}
-                        className="h-4 w-4 text-blue-600 rounded"
-                      />
-                    </td>
-                    <td className="px-4 py-4">
+        <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <div className="min-w-full inline-block align-middle">
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                          {user.displayName?.charAt(0) || user.email?.charAt(0) || user.phone?.charAt(0) || 'U'}
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.phone || user.displayName || 'Sans nom'}
-                          </div>
-                          <div className="text-xs text-gray-500 flex items-center">
-                            <Mail className="w-3 h-3 mr-1" />
-                            {user.email || 'Pas d\'email'}
-                          </div>
-                          {user.phone && (
-                            <div className="text-xs text-gray-500 flex items-center">
-                              <Phone className="w-3 h-3 mr-1" />
-                              {user.phone}
-                            </div>
-                          )}
-                          <div className="text-xs text-gray-400 mt-1">
-                            ID: {user.id.substring(0, 8)}...
-                          </div>
-                        </div>
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                          onChange={toggleSelectAll}
+                          className="h-3 sm:h-4 w-3 sm:w-4 text-blue-600 rounded"
+                        />
                       </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${roleColors[user.role || 'user']}`}>
-                        {user.role || 'user'}
-                      </span>
-                      {user.emailVerified && (
-                        <div className="mt-1 text-xs text-green-600 flex items-center">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Email vérifié
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[user.status || 'active']}`}>
-                        {user.status || 'active'}
-                      </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Dernière connexion: {formatDate(user.lastLogin)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <Calendar className="w-3 h-3 mr-1 text-gray-400" />
-                          {formatDate(user.registration)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewUser(user)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Voir profil"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEditUser(user)}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="Modifier"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        {user.status === 'suspended' ? (
-                          <button 
-                            onClick={() => handleUserAction('activate', user.id)}
-                            disabled={actionLoading}
-                            className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                            title="Réactiver"
-                          >
-                            <Unlock className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => handleUserAction('suspend', user.id)}
-                            disabled={actionLoading}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                            title="Suspendre"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => handleUserAction('delete', user.id)}
-                          disabled={actionLoading}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Utilisateur
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                      Rôle
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Inscription
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="px-4 py-8 text-center">
-                    <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500">Aucun utilisateur trouvé</p>
-                    {search && (
-                      <p className="text-sm text-gray-400 mt-1">
-                        Aucun résultat pour "{search}"
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={() => toggleUserSelection(user.id)}
+                            className="h-3 sm:h-4 w-3 sm:w-4 text-blue-600 rounded"
+                          />
+                        </td>
+                        <td className="px-2 sm:px-4 py-3">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                              {user.displayName?.charAt(0) || user.email?.charAt(0) || user.phone?.charAt(0) || 'U'}
+                            </div>
+                            <div className="ml-2 sm:ml-3 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {user.phone || user.displayName || 'Sans nom'}
+                              </div>
+                              <div className="text-xs text-gray-500 flex items-center truncate">
+                                <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
+                                <span className="truncate">{user.email || 'Pas d\'email'}</span>
+                              </div>
+                              {user.phone && (
+                                <div className="text-xs text-gray-500 flex items-center truncate">
+                                  <Phone className="w-3 h-3 mr-1 flex-shrink-0" />
+                                  <span className="truncate">{user.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${roleColors[user.role || 'user']}`}>
+                            {user.role || 'user'}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[user.status || 'active']}`}>
+                            {user.status || 'active'}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1 truncate hidden sm:block">
+                            Dernière connexion: {formatDate(user.lastLogin)}
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden md:table-cell">
+                          <div className="text-sm text-gray-900">
+                            <div className="flex items-center">
+                              <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                              {formatDate(user.registration)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center space-x-1 sm:space-x-2">
+                            <button
+                              onClick={() => handleViewUser(user)}
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="Voir profil"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditUser(user)}
+                              className="text-gray-600 hover:text-gray-900 p-1"
+                              title="Modifier"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            {user.status === 'suspended' ? (
+                              <button 
+                                onClick={() => handleUserAction('activate', user.id)}
+                                disabled={actionLoading}
+                                className="text-green-600 hover:text-green-900 p-1 disabled:opacity-50"
+                                title="Réactiver"
+                              >
+                                <Unlock className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleUserAction('suspend', user.id)}
+                                disabled={actionLoading}
+                                className="text-red-600 hover:text-red-900 p-1 disabled:opacity-50"
+                                title="Suspendre"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-8 text-center">
+                        <AlertCircle className="w-8 sm:w-12 h-8 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                        <p className="text-gray-500 text-sm sm:text-base">Aucun utilisateur trouvé</p>
+                        {search && (
+                          <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                            Aucun résultat pour "{search}"
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
         
         {/* Pagination */}
         {filteredUsers.length > 0 && (
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-sm text-gray-500">
+          <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="text-xs sm:text-sm text-gray-500">
               Affichage de 1 à {filteredUsers.length} sur {users.length} utilisateurs
             </div>
           </div>
@@ -683,155 +652,90 @@ export default function UtilisateursPage() {
         loading={drawerLoading}
       >
         {userDetails && userWallet && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Informations personnelles */}
-            <div className="bg-gray-50 rounded-xl p-5">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5" />
+            <div className="bg-gray-50 rounded-lg sm:rounded-xl p-3 sm:p-5">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2">
+                <User className="w-4 sm:w-5 h-4 sm:h-5" />
                 Informations personnelles
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Nom complet</label>
-                  <p className="text-gray-900">{userDetails.displayName || 'Non spécifié'}</p>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Nom complet</label>
+                  <p className="text-gray-900 text-sm sm:text-base">{userDetails.displayName || 'Non spécifié'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-gray-900">{userDetails.email}</p>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Email</label>
+                  <p className="text-gray-900 text-sm sm:text-base">{userDetails.email}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Téléphone</label>
-                  <p className="text-gray-900">{userDetails.phone || 'Non spécifié'}</p>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Téléphone</label>
+                  <p className="text-gray-900 text-sm sm:text-base">{userDetails.phone || 'Non spécifié'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Statut</label>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Statut</label>
                   <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[userDetails.status || 'active']}`}>
                     {userDetails.status || 'active'}
                   </span>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Code d'invitation</label>
-                  <p className="text-gray-900 font-mono">{userDetails.invitationCode || 'Non défini'}</p>
+                <div className="sm:col-span-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Code d'invitation</label>
+                  <p className="text-gray-900 font-mono text-sm sm:text-base">{userDetails?.invitationCode || 'Non défini'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Inscription</label>
-                  <p className="text-gray-900">{formatDate(userDetails.createdAt)}</p>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Inscription</label>
+                  <p className="text-gray-900 text-sm sm:text-base">{formatDate(userDetails?.createdAt)}</p>
                 </div>
-                {userDetails.referrerId && (
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-gray-500">Parrain</label>
-                    <p className="text-gray-900">ID: {userDetails.referrerId}</p>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Soldes financiers */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Wallet className="w-5 h-5" />
+            <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-5">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2">
+                <Wallet className="w-4 sm:w-5 h-4 sm:h-5" />
                 Soldes financiers
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-900">Solde Disponible</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                    <CreditCard className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
+                    <span className="text-xs sm:text-sm font-medium text-blue-900">Solde Disponible</span>
                   </div>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">
                     {formatAmount(userWallet.available)} CDF
                   </p>
                   <p className="text-xs text-blue-700 mt-1">Pour investissements/retraits</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-900">Solde Investi</span>
+                <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                    <TrendingUp className="w-3 sm:w-4 h-3 sm:h-4 text-green-600" />
+                    <span className="text-xs sm:text-sm font-medium text-green-900">Solde Investi</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
                     {formatAmount(userWallet.invested)} CDF
                   </p>
                   <p className="text-xs text-green-700 mt-1">Actuellement en action</p>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm font-medium text-purple-900">Total Dépôts</span>
+                <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                    <DollarSign className="w-3 sm:w-4 h-3 sm:h-4 text-purple-600" />
+                    <span className="text-xs sm:text-sm font-medium text-purple-900">Total Dépôts</span>
                   </div>
-                  <p className="text-2xl font-bold text-purple-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600">
                     {formatAmount(userWallet.totalDeposited)} CDF
                   </p>
                 </div>
-                <div className="bg-amber-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-900">Gains Parrainage</span>
+                <div className="bg-amber-50 p-3 sm:p-4 rounded-lg">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                    <BarChart3 className="w-3 sm:w-4 h-3 sm:h-4 text-amber-600" />
+                    <span className="text-xs sm:text-sm font-medium text-amber-900">Gains Parrainage</span>
                   </div>
-                  <p className="text-2xl font-bold text-amber-600">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600">
                     {formatAmount(userWallet.referralEarnings)} CDF
-                  </p>
-                </div>
-                <div className="bg-indigo-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-indigo-600" />
-                    <span className="text-sm font-medium text-indigo-900">Total Investi</span>
-                  </div>
-                  <p className="text-2xl font-bold text-indigo-600">
-                    {formatAmount(userWallet.totalInvested)} CDF
-                  </p>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-900">Total Retiré</span>
-                  </div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatAmount(userWallet.totalWithdrawn)} CDF
                   </p>
                 </div>
               </div>
             </div>
-
-            {/* Transactions récentes */}
-            {userTransactions.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  10 dernières transactions
-                </h3>
-                <div className="space-y-3">
-                  {userTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {transaction.type === 'investment' ? 'Investissement' : 
-                           transaction.type === 'deposit' ? 'Dépôt' : 
-                           transaction.type === 'withdrawal' ? 'Retrait' : 
-                           transaction.type === 'referral_commission' ? 'Commission parrainage' : transaction.type}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {formatDate(transaction.createdAt)}
-                        </p>
-                        {transaction.status && (
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                            transaction.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                            transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {transaction.status}
-                          </span>
-                        )}
-                      </div>
-                      <div className={`text-lg font-bold ${
-                        transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {transaction.amount > 0 ? '+' : ''}{formatAmount(transaction.amount)} CDF
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Drawer>
@@ -843,7 +747,7 @@ export default function UtilisateursPage() {
         title={`Modifier ${selectedUser?.displayName || selectedUser?.email || selectedUser?.phone}`}
         size="md"
       >
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nom complet
@@ -852,7 +756,7 @@ export default function UtilisateursPage() {
               type="text"
               value={editForm.displayName}
               onChange={(e) => setEditForm({...editForm, displayName: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
               placeholder="Nom de l'utilisateur"
             />
           </div>
@@ -864,7 +768,7 @@ export default function UtilisateursPage() {
               type="email"
               value={editForm.email}
               onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
               placeholder="email@exemple.com"
             />
           </div>
@@ -876,20 +780,8 @@ export default function UtilisateursPage() {
               type="tel"
               value={editForm.phone}
               onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
               placeholder="+243 XX XXX XX XX"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Code d'invitation
-            </label>
-            <input
-              type="text"
-              value={editForm.invitationCode}
-              onChange={(e) => setEditForm({...editForm, invitationCode: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              placeholder="Code d'invitation"
             />
           </div>
           <div>
@@ -899,7 +791,7 @@ export default function UtilisateursPage() {
             <select
               value={editForm.role}
               onChange={(e) => setEditForm({...editForm, role: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
             >
               <option value="user">Utilisateur</option>
               <option value="moderator">Modérateur</option>
@@ -913,18 +805,18 @@ export default function UtilisateursPage() {
             <select
               value={editForm.status}
               onChange={(e) => setEditForm({...editForm, status: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
             >
               <option value="active">Actif</option>
               <option value="suspended">Suspendu</option>
               <option value="inactive">Inactif</option>
             </select>
           </div>
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-3 sm:pt-4 border-t border-gray-200">
             <button
               onClick={handleSaveEdit}
               disabled={actionLoading}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
             >
               {actionLoading ? 'Sauvegarde...' : 'Enregistrer les modifications'}
             </button>

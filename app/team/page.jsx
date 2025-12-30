@@ -25,7 +25,7 @@ export default function TeamSection() {
     levels: []
   });
   const [loading, setLoading] = useState(true);
-  const url = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopmark.fr';
+  const url = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopmakk.netlify.app';
 
   console.log("teamData dans TeamSection.jsx:", teamData);
 
@@ -39,7 +39,7 @@ export default function TeamSection() {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.exists() ? userDoc.data() : {};
         
-        const invitationCode = userData.invitationCode || user.uid.substring(0, 8).toUpperCase();
+        const invitationCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
         const invitationLink = `${url}/invite/${invitationCode}`;
 
         // 2. Calculer les membres par niveau ET leurs investissements totaux

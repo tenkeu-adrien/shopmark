@@ -19,7 +19,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 
 export default function DashboardLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -36,34 +36,13 @@ export default function DashboardLayout({ children }) {
       href: '/dashboard/utilisateurs',
       icon: Users,
       current: pathname.startsWith('/dashboard/utilisateurs'),
-      badge: 24,
     },
-    // {
-    //   name: 'Ressources',
-    //   href: '/dashboard/ressources',
-    //   icon: Package,
-    //   current: pathname.startsWith('/dashboard/ressources'),
-    //   badge: 12,
-    // },
     {
       name: 'Transactions',
       href: '/dashboard/transactions',
       icon: CreditCard,
       current: pathname.startsWith('/dashboard/transactions'),
-      badge: 42,
     },
-    // {
-    //   name: 'Statistiques',
-    //   href: '/dashboard/statistiques',
-    //   icon: BarChart3,
-    //   current: pathname.startsWith('/dashboard/statistiques'),
-    // },
-    // {
-    //   name: 'Paramètres',
-    //   href: '/dashboard/parametres',
-    //   icon: Settings,
-    //   current: pathname.startsWith('/dashboard/parametres'),
-    // },
   ];
 
   const secondaryNavigation = [
@@ -76,18 +55,17 @@ export default function DashboardLayout({ children }) {
     },
   ];
 
-  // Fermer le menu mobile quand on change de page
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Mobile menu button - CORRIGÉ : retirer le top */}
-      <div className="lg:hidden fixed z-50 left-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-lg bg-white shadow-md"
+          className="p-2 rounded-lg bg-white shadow-md border border-gray-200"
         >
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -95,11 +73,10 @@ export default function DashboardLayout({ children }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 
-        transform transition-transform duration-300 ease-in-out
-        lg:translate-x-0 lg:static lg:inset-auto lg:h-screen lg:sticky lg:top-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 z-40 w-full sm:w-64 bg-white border-r border-gray-200 
+        transform transition-transform duration-300 ease-in-out lg:translate-x-0
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -117,75 +94,41 @@ export default function DashboardLayout({ children }) {
           </div>
 
           {/* Navigation principale */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 sm:px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <a
                 key={item.name}
                 href={item.href}
                 className={`
-                  flex items-center px-3 py-2.5 text-sm font-medium rounded-lg
-                  transition-colors duration-200
+                  flex items-center px-3 py-3 text-sm font-medium rounded-lg
+                  transition-colors duration-200 mx-1
                   ${item.current
                     ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border-l-4 border-blue-500'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }
                 `}
               >
-                <item.icon className="w-5 h-5 mr-3" />
-                <span className="flex-1">{item.name}</span>
-                {/* {item.badge && (
-                  <span className={`
-                    px-2 py-1 text-xs font-semibold rounded-full
-                    ${item.current 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'bg-gray-200 text-gray-700'
-                    }
-                  `}>
-                    {item.badge}
-                  </span>
-                )} */}
+                <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                <span className="flex-1 truncate">{item.name}</span>
               </a>
             ))}
           </nav>
 
-          {/* Navigation secondaire */}
-          <div className="p-4 border-t border-gray-200 shrink-0">
-           
-
-            {/* Status système */}
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600">Status API</span>
-                <span className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-xs font-medium text-gray-700">En ligne</span>
-                </span>
-              </div>
-              <div className="mt-2 text-xs text-gray-500">
-                v1.2.3 • 24/7 Monitoring
-              </div>
+          {/* Status système */}
+          <div className="p-3 mx-2 sm:mx-4 my-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Status API</span>
+              <span className="flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                <span className="text-xs font-medium text-gray-700">En ligne</span>
+              </span>
+            </div>
+            <div className="mt-2 text-xs text-gray-500 truncate">
+              v1.2.3 • 24/7 Monitoring
             </div>
           </div>
         </div>
       </aside>
-
-      {/* Contenu principal - CORRIGÉ : structure améliorée */}
-      <main className={`
-        flex-1 min-h-screen transition-all duration-300
-        ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}
-      `}>
-        <div className="h-full p-4 md:p-6">
-          {/* Header pour mobile */}
-          <div className="lg:hidden mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          </div>
-          
-          {/* Contenu des pages */}
-          <div className="h-full">
-            {children}
-          </div>
-        </div>
-      </main>
 
       {/* Overlay pour mobile */}
       {mobileMenuOpen && (
@@ -194,6 +137,17 @@ export default function DashboardLayout({ children }) {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      {/* Contenu principal */}
+      <main className={`
+        lg:ml-64 transition-all duration-300
+        ${mobileMenuOpen ? 'ml-0' : 'ml-0'}
+        pt-16 lg:pt-0 px-3 sm:px-4 md:px-6 py-4 sm:py-6
+      `}>
+        <div className="max-w-full">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

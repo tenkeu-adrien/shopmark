@@ -44,7 +44,7 @@ export default function DepotPage() {
   const [copiedField, setCopiedField] = useState(null);
   const [transactionId, setTransactionId] = useState("");
   const [usdtAmount, setUsdtAmount] = useState(""); // Pour la saisie USDT
-  const [exchangeRate] = useState(2800); // Taux de change USDT → CDF
+  const [exchangeRate] = useState(2350); // Taux de change USDT → CDF
 
 
   useEffect(() => {

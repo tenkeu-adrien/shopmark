@@ -393,7 +393,7 @@ export default function AuthPage() {
               <label htmlFor="invitationCode" className="block text-sm font-medium text-gray-300 mb-2">
                 Code d'invitation
                 <span className="text-amber-500 text-sm ml-1">
-                  {invitationCode ? '(pré-rempli)' : '(optionnel)'}
+                  {invitationCode ? '(pré-rempli)' : ''}
                 </span>
               </label>
               <div className="relative">

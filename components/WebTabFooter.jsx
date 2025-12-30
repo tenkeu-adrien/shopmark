@@ -1,5 +1,15 @@
 
+"use client";
+import { useAuth } from "@/contexts/AuthContext";
 export default function WebTabFooter() {
+
+const { user } = useAuth();
+
+
+ if (!user) {
+    return null;
+  }
+ 
   const tabs = [
     { 
       id: "home", 

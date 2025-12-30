@@ -57,14 +57,15 @@ export default function HeroWithNavbar({title,content,image}) {
 </p>
 
           <div className="flex justify-center space-x-4">
-            <motion.a
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              href="tel:+447412830186"
-              className="bg-orange-600 px-6 py-3 rounded-xl text-white shadow-lg"
-            >
-              Nous contacter
-            </motion.a>
+        <motion.a
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+  href="https://wa.me/447412830186"
+  className="bg-orange-600 px-6 py-3 rounded-xl text-white shadow-lg"
+>
+  Nous contacter
+</motion.a>
+
             <motion.a
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

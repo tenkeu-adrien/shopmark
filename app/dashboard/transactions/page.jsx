@@ -1,4 +1,3 @@
-// app/dashboard/transactions/page.js
 "use client";
 
 import { 
@@ -67,13 +66,11 @@ export default function TransactionsPage() {
     totalAmount: 0
   });
   
-  // États pour la modale
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
 
-  // Charger les transactions
   useEffect(() => {
     loadTransactions();
     const interval = setInterval(loadTransactions, 30000);
@@ -117,7 +114,6 @@ export default function TransactionsPage() {
     }
   };
 
-  // Charger les détails d'une transaction
   const loadTransactionDetails = async (transactionId) => {
     try {
       setDrawerLoading(true);
@@ -126,7 +122,6 @@ export default function TransactionsPage() {
       if (transactionDoc.exists()) {
         const data = transactionDoc.data();
         
-        // Charger les infos utilisateur
         let userInfo = {};
         if (data.userId) {
           const userDoc = await getDoc(doc(db, 'users', data.userId));
@@ -148,14 +143,12 @@ export default function TransactionsPage() {
     }
   };
 
-  // Ouvrir la modale de visualisation
   const handleViewTransaction = async (transaction) => {
     setSelectedTransaction(transaction);
     await loadTransactionDetails(transaction.id);
     setViewDrawerOpen(true);
   };
 
-  // Filtrer les transactions
   const filteredTransactions = transactions.filter(transaction => {
     if (filter !== 'all' && transaction.status !== filter) return false;
     if (typeFilter !== 'all') {
@@ -176,7 +169,6 @@ export default function TransactionsPage() {
     return true;
   });
 
-  // Copier dans le presse-papier
   const copyToClipboard = async (text, field) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -187,7 +179,6 @@ export default function TransactionsPage() {
     }
   };
 
-  // Gérer les actions sur les transactions
   const handleTransactionAction = async (transactionId, action) => {
     if (!confirm(`${action === 'approve' ? 'Approuver' : 'Rejeter'} cette transaction ?`)) {
       return;
@@ -271,7 +262,6 @@ export default function TransactionsPage() {
     }
   };
 
-  // Utilitaires d'affichage
   const statusColors = {
     confirmed: 'bg-green-100 text-green-800',
     pending: 'bg-yellow-100 text-yellow-800',
@@ -340,92 +330,92 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-600 mt-1">Gestion des transactions financières</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Transactions</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Gestion des transactions financières</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button 
             onClick={loadTransactions}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
           >
             <RefreshCw className="w-4 h-4" />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
           <button 
             onClick={exportTransactions}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm sm:text-base"
           >
             <Download className="w-4 h-4" />
-            Exporter
+            <span className="hidden sm:inline">Exporter</span>
           </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Total</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <CreditCard className="w-6 h-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+              <CreditCard className="w-5 sm:w-6 h-5 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Montant total</p>
-              <p className="text-2xl font-bold text-gray-900">{formatAmount(stats.totalAmount)} CDF</p>
+              <p className="text-xs sm:text-sm text-gray-500">Montant total</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{formatAmount(stats.totalAmount)} CDF</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+            <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+              <DollarSign className="w-5 sm:w-6 h-5 sm:h-6 text-green-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Confirmées</p>
-              <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Confirmées</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.confirmed}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+              <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-green-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">En attente</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              <p className="text-xs sm:text-sm text-gray-500">En attente</p>
+              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.pending}</p>
             </div>
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
+            <div className="p-2 sm:p-3 bg-yellow-100 rounded-lg">
+              <Clock className="w-5 sm:w-6 h-5 sm:h-6 text-yellow-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm border border-gray-200 col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Rejetées</p>
-              <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Rejetées</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.rejected}</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <XCircle className="w-6 h-6 text-red-600" />
+            <div className="p-2 sm:p-3 bg-red-100 rounded-lg">
+              <XCircle className="w-5 sm:w-6 h-5 sm:h-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -433,16 +423,16 @@ export default function TransactionsPage() {
 
       {/* Filtres et recherche */}
       <DashboardCard>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 sm:w-5 h-4 sm:h-5" />
               <input
                 type="text"
                 placeholder="Rechercher une transaction..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -450,7 +440,7 @@ export default function TransactionsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Tous les types</option>
               <option value="deposit">Dépôts</option>
@@ -459,7 +449,7 @@ export default function TransactionsPage() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Tous les statuts</option>
               <option value="pending">En attente</option>
@@ -472,220 +462,147 @@ export default function TransactionsPage() {
 
       {/* Table des transactions */}
       <DashboardCard>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Transaction
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Utilisateur
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bénéficiaire
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Montant
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID Transaction
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Statut
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-gray-100 rounded-lg mr-3">
-                          {getTypeIcon(transaction)}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {(transaction.type === 'deposit' ? 'DEP' : 'WIT')}-{transaction.id.substring(0, 8)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {transaction.paymentMethod}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {transaction.userName || 'Utilisateur'}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {transaction.userEmail}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      {transaction.recipientName ? (
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {transaction.recipientName}
-                          </div>
-                          {transaction.recipientPhone && (
-                            <div className="text-xs text-gray-500">
-                              <Phone className="w-3 h-3 inline mr-1" />
-                              {transaction.recipientPhone}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className={`text-lg font-bold ${transaction.type === 'deposit' || transaction.depositId ? 'text-green-600' : 'text-red-600'}`}>
-                        {(transaction.type === 'deposit' || transaction.depositId) ? '+' : '-'}{formatAmount(transaction.amount)} CDF
-                      </div>
-                      {transaction.fees > 0 && (
-                        <div className="text-xs text-gray-500">
-                          Frais: {formatAmount(transaction.fees)} CDF
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColors[transaction.type === 'deposit' || transaction.depositId ? 'deposit' : 'withdrawal']}`}>
-                        {transaction.type === 'deposit' || transaction.depositId ? 'Dépôt' : 'Retrait'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center justify-between group">
-                        <div className="min-w-0">
-                          {transaction.transactionId ? (
-                            <div>
-                              <div className="text-sm font-mono text-gray-900 truncate max-w-xs">
-                                {transaction.transactionId}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                ID Client
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </div>
-                        {transaction.transactionId && (
-                          <button
-                            onClick={() => copyToClipboard(transaction.transactionId, transaction.id)}
-                            className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Copier l'ID"
-                          >
-                            {copiedId === transaction.id ? (
-                              <Check className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[transaction.status]}`}>
-                          {getStatusIcon(transaction.status)}
-                          <span className="ml-1">
-                            {transaction.status === 'confirmed' ? 'Confirmé' : 
-                             transaction.status === 'pending' ? 'En attente' : 'Rejeté'}
-                          </span>
-                        </span>
-                      </div>
-                      {transaction.adminNotes && (
-                        <div className="text-xs text-gray-500 mt-1 truncate max-w-xs" title={transaction.adminNotes}>
-                          {transaction.adminNotes}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(transaction.date)}
-                      {transaction.processedAt && (
-                        <div className="text-xs text-gray-400">
-                          Traité: {formatDate(transaction.processedAt)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center space-x-2">
-                        {transaction.status === 'pending' && (
-                          <>
-                            <button 
-                              onClick={() => handleTransactionAction(transaction.id, 'approve')}
-                              disabled={processing === transaction.id}
-                              className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                              title="Approuver"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleTransactionAction(transaction.id, 'reject')}
-                              disabled={processing === transaction.id}
-                              className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                              title="Rejeter"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        <button 
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Voir détails"
-                          onClick={() => handleViewTransaction(transaction)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {processing === transaction.id && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Traitement...
-                        </div>
-                      )}
-                    </td>
+        <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <div className="min-w-full inline-block align-middle">
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                      Utilisateur
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Montant
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Type
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center">
-                    <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500">Aucune transaction trouvée</p>
-                    {(search || filter !== 'all' || typeFilter !== 'all') && (
-                      <p className="text-sm text-gray-400 mt-1">
-                        Essayez de modifier vos filtres
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((transaction) => (
+                      <tr key={transaction.id} className="hover:bg-gray-50">
+                        <td className="px-2 sm:px-4 py-3">
+                          <div className="flex items-center">
+                            <div className="p-1.5 sm:p-2 bg-gray-100 rounded-lg mr-2 sm:mr-3 flex-shrink-0">
+                              {getTypeIcon(transaction)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {(transaction.type === 'deposit' ? 'DEP' : 'WIT')}-{transaction.id.substring(0, 6)}...
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {transaction.paymentMethod}
+                              </div>
+                              <div className="text-xs text-gray-500 sm:hidden">
+                                {transaction.userName || 'Utilisateur'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {transaction.userName || 'Utilisateur'}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {transaction.userEmail}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <div className={`text-base sm:text-lg font-bold ${transaction.type === 'deposit' || transaction.depositId ? 'text-green-600' : 'text-red-600'}`}>
+                            {(transaction.type === 'deposit' || transaction.depositId) ? '+' : '-'}{formatAmount(transaction.amount)} CDF
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap hidden md:table-cell">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColors[transaction.type === 'deposit' || transaction.depositId ? 'deposit' : 'withdrawal']}`}>
+                            {transaction.type === 'deposit' || transaction.depositId ? 'Dépôt' : 'Retrait'}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[transaction.status]}`}>
+                              {getStatusIcon(transaction.status)}
+                              <span className="ml-1 hidden sm:inline">
+                                {transaction.status === 'confirmed' ? 'Confirmé' : 
+                                 transaction.status === 'pending' ? 'En attente' : 'Rejeté'}
+                              </span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center space-x-1 sm:space-x-2">
+                            {transaction.status === 'pending' && (
+                              <>
+                                <button 
+                                  onClick={() => handleTransactionAction(transaction.id, 'approve')}
+                                  disabled={processing === transaction.id}
+                                  className="text-green-600 hover:text-green-900 p-1 disabled:opacity-50"
+                                  title="Approuver"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleTransactionAction(transaction.id, 'reject')}
+                                  disabled={processing === transaction.id}
+                                  className="text-red-600 hover:text-red-900 p-1 disabled:opacity-50"
+                                  title="Rejeter"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            <button 
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="Voir détails"
+                              onClick={() => handleViewTransaction(transaction)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-8 text-center">
+                        <AlertCircle className="w-8 sm:w-12 h-8 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                        <p className="text-gray-500 text-sm sm:text-base">Aucune transaction trouvée</p>
+                        {(search || filter !== 'all' || typeFilter !== 'all') && (
+                          <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                            Essayez de modifier vos filtres
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
         
         {filteredTransactions.length > 0 && (
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-sm text-gray-500">
+          <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="text-xs sm:text-sm text-gray-500">
               Affichage de 1 à {filteredTransactions.length} sur {transactions.length} transactions
             </div>
           </div>
         )}
       </DashboardCard>
 
-      {/* Drawer de visualisation des transactions */}
+      {/* Drawer de visualisation */}
       <Drawer
         isOpen={viewDrawerOpen}
         onClose={() => setViewDrawerOpen(false)}
@@ -694,77 +611,65 @@ export default function TransactionsPage() {
         loading={drawerLoading}
       >
         {transactionDetails && (
-          <div className="space-y-6">
-            {/* En-tête avec ID et statut */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div>
-                <p className="text-sm text-gray-500">ID Transaction</p>
-                <p className="font-mono text-gray-900 font-bold">{transactionDetails.transactionId || transactionDetails.id}</p>
+                <p className="text-xs sm:text-sm text-gray-500">ID Transaction</p>
+                <p className="font-mono text-gray-900 font-bold text-sm sm:text-base truncate">{transactionDetails.transactionId || transactionDetails.id}</p>
               </div>
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColors[transactionDetails.status]}`}>
+              <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[transactionDetails.status]}`}>
                 {getStatusIcon(transactionDetails.status)}
-                <span className="ml-2">
+                <span className="ml-1 sm:ml-2">
                   {transactionDetails.status === 'confirmed' ? 'Confirmé' : 
                    transactionDetails.status === 'pending' ? 'En attente' : 'Rejeté'}
                 </span>
               </span>
             </div>
 
-            {/* Informations principales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Colonne gauche */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-4">
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5" />
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <DollarSign className="w-4 sm:w-5 h-4 sm:h-5" />
                     Montant
                   </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Montant {transactionDetails.type === 'deposit' ? 'déposé' : 'retiré'}:</span>
-                      <span className={`text-2xl font-bold ${transactionDetails.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-gray-600 text-sm sm:text-base">Montant {transactionDetails.type === 'deposit' ? 'déposé' : 'retiré'}:</span>
+                      <span className={`text-lg sm:text-xl md:text-2xl font-bold ${transactionDetails.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
                         {transactionDetails.amount?.toLocaleString('fr-FR')} CDF
                       </span>
                     </div>
                     {transactionDetails.fees > 0 && (
-                      <div className="flex justify-between items-center border-t border-gray-100 pt-3">
-                        <span className="text-gray-600">Frais (10%):</span>
-                        <span className="text-lg font-semibold text-red-600">
+                      <div className="flex justify-between items-center border-t border-gray-100 pt-2 sm:pt-3">
+                        <span className="text-gray-600 text-sm sm:text-base">Frais:</span>
+                        <span className="text-base sm:text-lg font-semibold text-red-600">
                           -{transactionDetails.fees.toLocaleString('fr-FR')} CDF
-                        </span>
-                      </div>
-                    )}
-                    {transactionDetails.netAmount && (
-                      <div className="flex justify-between items-center border-t border-gray-100 pt-3">
-                        <span className="text-gray-600">Montant net:</span>
-                        <span className="text-xl font-bold text-blue-600">
-                          {transactionDetails.netAmount.toLocaleString('fr-FR')} CDF
                         </span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Informations bénéficiaire */}
                 {(transactionDetails.recipientName || transactionDetails.recipientPhone) && (
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <User className="w-5 h-5" />
+                  <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                    <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                      <User className="w-4 sm:w-5 h-4 sm:h-5" />
                       Bénéficiaire
                     </h4>
                     <div className="space-y-2">
                       {transactionDetails.recipientName && (
                         <div>
-                          <p className="text-sm text-gray-500">Nom</p>
-                          <p className="text-gray-900 font-medium">{transactionDetails.recipientName}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">Nom</p>
+                          <p className="text-gray-900 font-medium text-sm sm:text-base">{transactionDetails.recipientName}</p>
                         </div>
                       )}
                       {transactionDetails.recipientPhone && (
                         <div>
-                          <p className="text-sm text-gray-500">Téléphone</p>
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <p className="text-gray-900 font-medium">{transactionDetails.recipientPhone}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">Téléphone</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Phone className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 font-medium text-sm sm:text-base">{transactionDetails.recipientPhone}</p>
                           </div>
                         </div>
                       )}
@@ -773,107 +678,84 @@ export default function TransactionsPage() {
                 )}
               </div>
 
-              {/* Colonne droite */}
               <div className="space-y-4">
-                {/* Informations utilisateur */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <User className="w-5 h-5" />
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <User className="w-4 sm:w-5 h-4 sm:h-5" />
                     Utilisateur
                   </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {transactionDetails.userInfo && (
                       <>
                         <div>
-                          <p className="text-sm text-gray-500">Nom</p>
-                          <p className="text-gray-900">{transactionDetails.userInfo.displayName || 'Non spécifié'}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">Nom</p>
+                          <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.displayName || 'Non spécifié'}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Email</p>
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-gray-400" />
-                            <p className="text-gray-900">{transactionDetails.userInfo.email}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">Email</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Mail className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.email}</p>
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Téléphone</p>
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <p className="text-gray-900">{transactionDetails.userInfo.phone || 'Non spécifié'}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">Téléphone</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Phone className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.phone || 'Non spécifié'}</p>
                           </div>
                         </div>
                       </>
                     )}
                     <div>
-                      <p className="text-sm text-gray-500">ID Utilisateur</p>
-                      <p className="text-gray-900 font-mono text-sm">{transactionDetails.userId}</p>
+                      <p className="text-xs sm:text-sm text-gray-500">ID Utilisateur</p>
+                      <p className="text-gray-900 font-mono text-xs sm:text-sm truncate">{transactionDetails.userId}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Informations transaction */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <FileText className="w-4 sm:w-5 h-4 sm:h-5" />
                     Détails
                   </h4>
                   <div className="space-y-2">
                     <div>
-                      <p className="text-sm text-gray-500">Type</p>
+                      <p className="text-xs sm:text-sm text-gray-500">Type</p>
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${typeColors[transactionDetails.type === 'deposit' ? 'deposit' : 'withdrawal']}`}>
                         {transactionDetails.type === 'deposit' ? 'Dépôt' : 'Retrait'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Méthode de paiement</p>
-                      <p className="text-gray-900 flex items-center gap-2">
+                      <p className="text-xs sm:text-sm text-gray-500">Méthode de paiement</p>
+                      <p className="text-gray-900 text-sm sm:text-base flex items-center gap-1 sm:gap-2">
                         {transactionDetails.paymentMethod?.includes('Orange') ? (
-                          <Smartphone className="w-4 h-4 text-orange-600" />
+                          <Smartphone className="w-3 sm:w-4 h-3 sm:h-4 text-orange-600" />
                         ) : transactionDetails.paymentMethod?.includes('Airtel') ? (
-                          <Smartphone className="w-4 h-4 text-red-600" />
+                          <Smartphone className="w-3 sm:w-4 h-3 sm:h-4 text-red-600" />
                         ) : (
-                          <CreditCard className="w-4 h-4 text-blue-600" />
+                          <CreditCard className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
                         )}
                         {transactionDetails.paymentMethod || 'Non spécifié'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Créée le</p>
-                      <p className="text-gray-900 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
+                      <p className="text-xs sm:text-sm text-gray-500">Créée le</p>
+                      <p className="text-gray-900 text-sm sm:text-base flex items-center gap-1 sm:gap-2">
+                        <Calendar className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
                         {formatDate(transactionDetails.createdAt)}
                       </p>
                     </div>
-                    {transactionDetails.processedAt && (
-                      <div>
-                        <p className="text-sm text-gray-500">Traitée le</p>
-                        <p className="text-gray-900">{formatDate(transactionDetails.processedAt)}</p>
-                      </div>
-                    )}
-                    {transactionDetails.processedBy && (
-                      <div>
-                        <p className="text-sm text-gray-500">Traitée par</p>
-                        <p className="text-gray-900">{transactionDetails.processedBy}</p>
-                      </div>
-                    )}
                     {transactionDetails.adminNotes && (
                       <div>
-                        <p className="text-sm text-gray-500">Notes admin</p>
-                        <p className="text-gray-900 bg-yellow-50 p-2 rounded text-sm">{transactionDetails.adminNotes}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">Notes admin</p>
+                        <p className="text-gray-900 bg-yellow-50 p-2 rounded text-xs sm:text-sm">{transactionDetails.adminNotes}</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Description */}
-            {transactionDetails.description && (
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-2">Description</h4>
-                <p className="text-gray-700">{transactionDetails.description}</p>
-              </div>
-            )}
           </div>
         )}
       </Drawer>

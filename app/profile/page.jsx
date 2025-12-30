@@ -38,17 +38,16 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
   console.log("inviteCode:", inviteCode);
   const menuOptions = [
     { id: 1, icon: Settings, label: "Paramètres", href: "/settings" },
-    { id: 2, icon: FileText, label: "Registre des recharges", href: "/recharge-history" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
-    { id: 5, icon: Headphones, label: "Service client", href: "/support" },
+    { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },
     { id: 6, icon: Users, label: "Invitations", href: "/invitations" },
   ];
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push(`/invite/${inviteCode}`); // Rediriger vers la page de connexion
+      router.push(`/auth/login`); // Rediriger vers la page de connexion
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
     }
@@ -96,7 +95,7 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
                   <span className="font-medium">{authUser?.phone || user.phone}</span>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Retrait total commandé : <span className="font-bold text-amber-600">${user.totalWithdrawal}</span>
+                  Retrait total commandé : <span className="font-bold text-amber-600"> CDF {user.totalWithdrawal}</span>
                 </p>
               </div>
               
