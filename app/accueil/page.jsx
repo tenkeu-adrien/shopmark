@@ -50,7 +50,7 @@ export default function CriteoWelcomePage() {
   const [userProfile, setUserProfile] = useState(null);
   const [teamStats, setTeamStats] = useState(null);
   const router = useRouter();
-    const url = process.env.NEXT_PUBLIC_BASE_URL || '';
+    const url = "https://shopmark.fr";
 const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
    const inviteLinkCode = `${url}/invite/${inviteCode}`;
   // Vérification d'authentification

@@ -25,7 +25,7 @@ export default function TeamSection() {
     levels: []
   });
   const [loading, setLoading] = useState(true);
-  const url = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopmakk.netlify.app';
+  const url = "https://shopmark.fr";
 
   console.log("teamData dans TeamSection.jsx:", teamData);
 
