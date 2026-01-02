@@ -31,8 +31,9 @@ export default function AuthPage() {
   const [countryCode, setCountryCode] = useState('+243'); // Code pays saisissable manuellement
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState('');
- const [phone, setPhone] = useState("679438299");
-  const [password, setPassword] = useState('123456');
+ const [phone, setPhone] = useState("");
+//  679438299
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [invitationCode, setInvitationCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -267,9 +268,9 @@ export default function AuthPage() {
             <div className="flex gap-3">
               {/* Champ code pays manuel */}
               <div className="relative flex-shrink-0">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                {/* <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Globe className="h-5 w-5 text-gray-500" />
-                </div>
+                </div> */}
                 <input
                   type="text"
                   value={countryCode}

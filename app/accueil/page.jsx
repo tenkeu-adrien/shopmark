@@ -714,7 +714,7 @@ const triggerReferralCommissions = async (userId, amount, batch) => {
           className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
         >
           {/* Code d'invitation */}
-          <div className="bg-white backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
+          <div className="bg-white backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
             <p className="text-sm font-medium text-gray-600 mb-2">Votre lien d'invitation</p>
             <div className="flex items-center gap-2 mb-3">
               <span className="font-bold text-lg text-amber-600">{inviteLinkCode}</span>
