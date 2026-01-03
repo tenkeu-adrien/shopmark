@@ -50,7 +50,7 @@ export default function AuthPage() {
 
   // Trouver le drapeau correspondant au code pays saisi
   const selectedCountry = countryCodes.find(c => c.code === countryCode.trim());
-  const displayFlag = selectedCountry ? selectedCountry.flag : '🌍';
+  const displayFlag = selectedCountry ? selectedCountry.flag : '';
 
   // Gestion du code d'invitation depuis URL
   useEffect(() => {
@@ -160,6 +160,7 @@ export default function AuthPage() {
           email.trim()
         );
 
+        console.log('Résultat de l\'inscription:', result);
         if (result.success) {
           setError('✅ Inscription réussie !');
           setTimeout(() => router.push('/'), 1500);

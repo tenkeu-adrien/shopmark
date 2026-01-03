@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  X
+  X,
+  Wallet // Ajout de l'icône Wallet
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -42,6 +43,13 @@ export default function DashboardLayout({ children }) {
       href: '/dashboard/transactions',
       icon: CreditCard,
       current: pathname.startsWith('/dashboard/transactions'),
+    },
+    // Nouvelle section ajoutée
+    {
+      name: 'Portefeuilles',
+      href: '/dashboard/portefeuilles',
+      icon: Wallet, // Icône pour la section portefeuilles
+      current: pathname.startsWith('/dashboard/portefeuilles'),
     },
   ];
 

@@ -113,7 +113,12 @@ export const AuthProvider = ({ children }) => {
             uid: user.uid,
             email: user.email,
             phoneNumber: user.phoneNumber,
-            displayName: user.displayName,
+            displayName: user.fullName,
+            fullName: userData.fullName || '',
+            invitationCode: userData.invitationCode || '',
+            referrerId: userData.referrerId || '',
+            referrerPhone: userData.referrerPhone || '',
+            createdAt: userData.createdAt || null,
             ...userData
           });
         } else {
@@ -129,96 +134,97 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Inscription optimisée
-  const signup = async (phone, password, invitationCode = '') => {
-    try {
-      console.log('=== DÉBUT INSCRIPTION ===');
-      console.log('Phone:', phone);
-      console.log('Code invitation:', invitationCode);
+ const signup = async (phone, password, invitationCode = '', fullName = '', userEmail = '') => {
+  try {
+    console.log('=== DÉBUT INSCRIPTION ===');
+    console.log('Phone:', phone);
+    console.log('Full Name:', fullName);
+    console.log('Email:', userEmail);
+    console.log('Code invitation:', invitationCode);
+    
+    // Vérifier si le code d'invitation est valide
+    let referrerId = null;
+    let referrerPhone = null;
+    
+    if (invitationCode && invitationCode.trim() !== '') {
+      // Rechercher l'utilisateur avec ce code d'invitation
+      const referrerQuery = query(
+        collection(db, 'users'),
+        where('invitationCode', '==', invitationCode.trim().toUpperCase())
+      );
+      const referrerSnapshot = await getDocs(referrerQuery);
       
-      // Vérifier si le code d'invitation est valide
-      let referrerId = null;
-      let referrerPhone = null;
-      
-      if (invitationCode && invitationCode.trim() !== '') {
-        // Rechercher l'utilisateur avec ce code d'invitation
-        const referrerQuery = query(
-          collection(db, 'users'),
-          where('invitationCode', '==', invitationCode.trim().toUpperCase())
-        );
-        const referrerSnapshot = await getDocs(referrerQuery);
-        
-        if (!referrerSnapshot.empty) {
-          const referrerDoc = referrerSnapshot.docs[0];
-          referrerId = referrerDoc.id;
-          referrerPhone = referrerDoc.data().phone;
-          console.log('✅ Parrain trouvé:', referrerId, 'phone:', referrerPhone);
-        } else {
-          console.log('⚠️ Aucun parrain trouvé avec ce code:', invitationCode);
-        }
+      if (!referrerSnapshot.empty) {
+        const referrerDoc = referrerSnapshot.docs[0];
+        referrerId = referrerDoc.id;
+        referrerPhone = referrerDoc.data().phone;
+        console.log('✅ Parrain trouvé:', referrerId, 'phone:', referrerPhone);
       } else {
-        console.log('ℹ️ Inscription sans code d\'invitation');
+        console.log('⚠️ Aucun parrain trouvé avec ce code:', invitationCode);
       }
-
-      // Générer un code d'invitation unique pour le nouvel utilisateur
-      const newInvitationCode = generateInvitationCode();
-      console.log('Nouveau code généré:', newInvitationCode);
-      
-      // Créer l'utilisateur Firebase Auth (email/password)
-      const email = `${phone.replace(/\s/g, '')}@shopmark.com`;
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUserId = userCredential.user.uid;
-      
-      console.log('Firebase Auth créé:', firebaseUserId);
-      
-      // Créer le document utilisateur dans Firestore
-      const userDocRef = doc(db, 'users', firebaseUserId);
-      const userData = {
-        uid: firebaseUserId,
-        phone,
-        email: email,
-        invitationCode: newInvitationCode,
-        referrerId: referrerId, // Stocker l'ID du parrain
-        referrerPhone: referrerPhone,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        isActive: true,
-        role: 'user'
-      };
-      
-      await setDoc(userDocRef, userData);
-      console.log('✅ Document utilisateur créé');
-      
-      // Créer le wallet
-      await createUserWallet(firebaseUserId, phone);
-      console.log('✅ Wallet créé');
-      
-      return {
-        success: true,
-        user: userData,
-        message: referrerId 
-          ? `Inscription réussie avec parrainage. Votre code: ${newInvitationCode}` 
-          : `Inscription réussie. Votre code: ${newInvitationCode}`
-      };
-      
-    } catch (error) {
-      console.error('❌ Erreur inscription détaillée:', error);
-      console.error('Code erreur:', error.code);
-      console.error('Message erreur:', error.message);
-      
-      let errorMessage = 'Erreur lors de l\'inscription';
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Ce numéro de téléphone est déjà utilisé';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Mot de passe trop faible (minimum 6 caractères)';
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        details: error.message
-      };
+    } else {
+      console.log('ℹ️ Inscription sans code d\'invitation');
     }
-  };
+
+    // Générer un code d'invitation unique pour le nouvel utilisateur
+    const newInvitationCode = generateInvitationCode();
+    console.log('Nouveau code généré:', newInvitationCode);
+    
+    // Créer l'utilisateur Firebase Auth (email/password)
+    const email = `${phone.replace(/\s/g, '')}@shopmark.com`;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const firebaseUserId = userCredential.user.uid;
+    
+    // Créer le document utilisateur dans Firestore
+    const userDocRef = doc(db, 'users', firebaseUserId);
+    const userData = {
+      uid: firebaseUserId,
+      phone,
+      email: userEmail || email, // Utiliser l'email fourni ou celui généré
+      fullName: fullName || '',
+      invitationCode: newInvitationCode,
+      referrerId: referrerId, // Stocker l'ID du parrain
+      referrerPhone: referrerPhone,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      isActive: true,
+      role: 'user'
+    };
+    
+    await setDoc(userDocRef, userData);
+    console.log('✅ Document utilisateur créé avec fullName:', fullName);
+    
+    // Créer le wallet
+    await createUserWallet(firebaseUserId, phone);
+    console.log('✅ Wallet créé');
+    
+    return {
+      success: true,
+      user: userData,
+      message: referrerId 
+        ? `Inscription réussie avec parrainage. Votre code: ${newInvitationCode}` 
+        : `Inscription réussie. Votre code: ${newInvitationCode}`
+    };
+    
+  } catch (error) {
+    console.error('❌ Erreur inscription détaillée:', error);
+    console.error('Code erreur:', error.code);
+    console.error('Message erreur:', error.message);
+    
+    let errorMessage = 'Erreur lors de l\'inscription';
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = 'Ce numéro de téléphone est déjà utilisé';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Mot de passe trop faible (minimum 6 caractères)';
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      details: error.message
+    };
+  }
+};
 
   // Connexion
   const login = async (phone, password) => {

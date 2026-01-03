@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Users, DollarSign, ChevronRight, Crown, UserCheck, Landmark, TrendingUp } from "lucide-react";
+import { Copy, Users, DollarSign, ChevronRight, Crown, UserCheck, Landmark, TrendingUp, List } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -12,6 +12,7 @@ import {
   getDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Link from "next/link";
 
 export default function TeamSection() {
   const { user } = useAuth();
@@ -25,8 +26,9 @@ export default function TeamSection() {
     levels: []
   });
   const [loading, setLoading] = useState(true);
-  const url = "https://shopmark.fr";
-
+  const url ="https://shopmark.fr";
+//  
+//  "http://localhost:3000"
   console.log("teamData dans TeamSection.jsx:", teamData);
 
   // Charger les données de l'équipe
@@ -199,10 +201,10 @@ export default function TeamSection() {
 
     // CALCUL CORRECT : Utiliser les montants d'investissement réels par niveau
     return [0, 1, 2].map((index) => {
-      const validUsers = index === 0 ? level1 : index === 1 ? level2 : level3;
+      const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
       const totalInvestment = index === 0 ? level1Investment : 
                              index === 1 ? level2Investment : 
-                             level3Investment;
+                             index === 2 ? level3Investment : 0;
       
       // REVENU RÉEL = Total investi × Taux de commission
       const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
@@ -212,7 +214,7 @@ export default function TeamSection() {
         commissionRate: commissionRates[index],
         validUsers: validUsers,
         revenue: revenue,
-        totalInvestment: totalInvestment, // Pour débogage si nécessaire
+        totalInvestment: totalInvestment,
         color: colors[index].gradient,
         iconColor: colors[index].iconColor,
         levelNumber: index + 1
@@ -249,6 +251,23 @@ export default function TeamSection() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         
+        {/* En-tête avec bouton "Voir mes filleuls" */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Mon équipe de parrainage</h1>
+            <p className="text-gray-600 mt-1">Gérez votre réseau et suivez vos commissions</p>
+          </div>
+          
+          <Link 
+            href="/mes-filleuls"
+            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg active:scale-95"
+          >
+            <List className="w-5 h-5" />
+            <span className="font-semibold">Voir mes filleuls</span>
+            <ChevronRight className="w-5 h-5" />
+          </Link>
+        </div>
+
         {/* 1. Carte - Code d'invitation */}
         <div className="bg-gradient-to-r from-orange-50 to-cyan-50 rounded-2xl p-5 md:p-6 mb-8 shadow-sm border border-blue-100">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -293,7 +312,7 @@ export default function TeamSection() {
                 className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all ${
                   copied 
                     ? 'bg-green-500 text-white' 
-                    : 'bg-orangee-500 text-white hover:bg-orange-600 active:scale-95'
+                    : 'bg-orange-500 text-white hover:bg-orange-600 active:scale-95'
                 }`}
               >
                 {copied ? (
@@ -305,8 +324,7 @@ export default function TeamSection() {
                   </>
                 ) : (
                   <>
-                    {/* <Copy className="w-5 h-5" /> */}
-                    {/* Tout copier */}
+                    Tout copier
                   </>
                 )}
               </button>
@@ -370,28 +388,6 @@ export default function TeamSection() {
               </p>
             </div>
           </div>
-
-          {/* Carte 3: Revenu total */}
-          {/* <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-100 p-3 rounded-xl">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Revenu total</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(teamData.totalRevenue)}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-sm text-gray-600">
-                Inclut parrainage + investissements
-              </p>
-            </div>
-          </div> */}
         </div>
 
         {/* 3. Titre - Détails de l'équipe */}
@@ -405,7 +401,7 @@ export default function TeamSection() {
           </div>
         </div>
 
-        {/* 4. Cartes niveaux de commission - AVEC AFFICHAGE CORRECT */}
+        {/* 4. Cartes niveaux de commission */}
         <div className="space-y-4 mb-16">
           {teamData.levels.map((level) => (
             <div 

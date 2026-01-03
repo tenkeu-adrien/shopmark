@@ -2,9 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext"; // AJOUT
-import { doc, getDoc } from "firebase/firestore"; // AJOUT
-import { db } from "@/lib/firebase"; // AJOUT
 import {
   ArrowLeft,
   Wallet,
@@ -24,12 +21,13 @@ import {
   Edit2,
   Save,
   X,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { financeService } from '@/lib/financeService';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 export default function RetraitPage() {
   const router = useRouter();
@@ -42,7 +40,7 @@ export default function RetraitPage() {
   const [tempWalletInfo, setTempWalletInfo] = useState("");
   const [transactionId, setTransactionId] = useState("");
 
-  const [userInfo, setUserInfo] = useState({ // AJOUT
+  const [userInfo, setUserInfo] = useState({
     uid: "",
     email: "",
     phone: "",
@@ -50,20 +48,25 @@ export default function RetraitPage() {
   });
   const [recipientName, setRecipientName] = useState("");
   
-  // Information des agents pour retrait
+  // NOUVEAU: États pour les agents dynamiques
+  const [dynamicAgents, setDynamicAgents] = useState({
+    airtelAgent: { number: "", name: "" },
+    orangeAgent: { number: "", name: "" },
+    mpesaAgent: { number: "", name: "" }
+  });
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  
   const [agentsInfo, setAgentsInfo] = useState({
     airtelAgent: "0986343739",
     orangeAgent: "0841366703",
     mpesaAgent: "0971234567",
   });
   
-  // Information de liaison du portefeuille
   const [linkedWallet, setLinkedWallet] = useState({
     provider: "airtel",
     number: "+243 81 234 5678",
   });
 
-  // État pour l'adresse BEP20 crypto
   const [cryptoAddress, setCryptoAddress] = useState("");
 
   useEffect(() => {
@@ -76,19 +79,15 @@ export default function RetraitPage() {
           name: currentUser.displayName || ''
         });
 
-        // Récupérer le solde disponible depuis le wallet
         try {
           const walletRef = doc(db, 'wallets', currentUser.uid);
           const walletSnap = await getDoc(walletRef);
           
           if (walletSnap.exists()) {
             const walletData = walletSnap.data();
-            // Récupérer le solde "wallet" qui est le solde disponible pour investir/retirer
             const availableBalance = walletData.balances?.wallet?.amount || 0;
             setAccountBalance(availableBalance);
-            console.log('Solde disponible chargé:', availableBalance, 'CDF');
           } else {
-            console.log('Aucun wallet trouvé pour cet utilisateur');
             setAccountBalance(0);
           }
         } catch (error) {
@@ -103,6 +102,56 @@ export default function RetraitPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // NOUVEAU: Charger les agents depuis Firestore
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        setAgentsLoading(true);
+        const agentsQuery = query(
+          collection(db, 'portefeuilles'),
+          where('status', '==', 'active')
+        );
+        const snapshot = await getDocs(agentsQuery);
+        
+        const agents = {
+          airtelAgent: { number: "", name: "" },
+          orangeAgent: { number: "", name: "" },
+          mpesaAgent: { number: "", name: "" }
+        };
+
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          switch(data.provider) {
+            case 'airtel':
+              agents.airtelAgent = { number: data.number || "", name: data.name || "" };
+              break;
+            case 'orange':
+              agents.orangeAgent = { number: data.number || "", name: data.name || "" };
+              break;
+            case 'mpesa':
+              agents.mpesaAgent = { number: data.number || "", name: data.name || "" };
+              break;
+          }
+        });
+
+        setDynamicAgents(agents);
+        
+        // Mettre à jour agentsInfo avec les numéros dynamiques
+        setAgentsInfo({
+          airtelAgent: agents.airtelAgent.number || "0986343739",
+          orangeAgent: agents.orangeAgent.number || "0841366703",
+          mpesaAgent: agents.mpesaAgent.number || "0971234567",
+        });
+      } catch (error) {
+        console.error('Erreur chargement agents:', error);
+      } finally {
+        setAgentsLoading(false);
+      }
+    };
+
+    loadAgents();
+  }, []);
+
   const paymentMethods = [
     {
       id: "orange",
@@ -115,13 +164,13 @@ export default function RetraitPage() {
       maxAmount: 5000000,
       color: "from-orange-500 to-orange-600",
       ussdCode: "*144#",
-      agentNumber: "0841366703",
+      agentNumber: dynamicAgents.orangeAgent.number || "0841366703",
       instructions: [
         "1. cadran: *144#",
         "2. Sélectionnez 2:CDF",
         "3. Sélectionnez 3:Je retire l'argent",
         "4. Sélectionnez 1:Retrait Agent(Numéro ou code agent)",
-        "5. Entrer Numéro: 0841366703",
+        "5. Entrer Numéro: " + (dynamicAgents.orangeAgent.number || "0841366703"),
         "6. Montant CDF: [montant]",
         "7. Entrer le Code Pin pour confirmer"
       ]
@@ -137,13 +186,13 @@ export default function RetraitPage() {
       maxAmount: 5000000,
       color: "from-red-500 to-red-600",
       ussdCode: "*501#",
-      agentNumber: "0986343739",
+      agentNumber: dynamicAgents.airtelAgent.number || "0986343739",
       instructions: [
         "1. cadran: *501#",
         "2. Sélectionnez 2.CDF",
         "3. Sélectionnez 2.Retrait d'argent",
         "4. Sélectionnez 1.Aupres d'un Agent",
-        "5. Entrer Code d'agent/numero: 0986343739",
+        "5. Entrer Code d'agent/numero: " + (dynamicAgents.airtelAgent.number || "0986343739"),
         "6. Entrer montant: [montant]",
         "7. Sélectionnez 1.Oui",
         "8. Entrez votre PIN"
@@ -160,11 +209,11 @@ export default function RetraitPage() {
       maxAmount: 5000000,
       color: "from-green-500 to-green-600",
       ussdCode: "*150*60#",
-      agentNumber: "0971234567",
+      agentNumber: dynamicAgents.mpesaAgent.number || "0971234567",
       instructions: [
         "1. Ouvrez l'application M-Pesa",
         "2. Sélectionnez 'Envoyer de l'argent'",
-        "3. Entrez le numéro: 0971234567",
+        "3. Entrez le numéro: " + (dynamicAgents.mpesaAgent.number || "0971234567"),
         "4. Saisissez le montant: [montant] CDF",
         "5. Confirmez la transaction",
         "6. Entrez votre PIN pour valider"
@@ -173,10 +222,11 @@ export default function RetraitPage() {
     {
       id: "crypto",
       name: "Crypto (BEP20)",
+      fees: "10%",
       icon: <Zap className="w-6 h-6" />,
       description: "Transfert en crypto BEP20",
       processingTime: "15-30min",
-      fees: "5%",
+      fees: "10%",
       minAmount: 30000,
       maxAmount: 50000000,
       color: "from-amber-500 to-amber-600",
@@ -198,7 +248,6 @@ export default function RetraitPage() {
     if (!amount || !selectedMethod) return 0;
     const numericAmount = parseInt(amount.replace(/\D/g, "")) || 0;
     
-    // Frais de 10% pour les mobiles, 5% pour crypto
     if (selectedMethod === "crypto") {
       return Math.round(numericAmount * 0.05);
     }
@@ -224,7 +273,6 @@ export default function RetraitPage() {
     const value = e.target.value.replace(/\D/g, "");
     setAmount(value);
     
-    // Générer un nouvel ID de transaction si montant valide
     if (value && parseInt(value) >= 3000) {
       if (!transactionId) {
         setTransactionId(generateTransactionId());
@@ -250,6 +298,17 @@ export default function RetraitPage() {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  // NOUVEAU: Récupérer le nom de l'agent
+  const getAgentName = () => {
+    if (!selectedMethod) return "";
+    switch(selectedMethod) {
+      case "orange": return dynamicAgents.orangeAgent.name || "Agent Orange";
+      case "airtel": return dynamicAgents.airtelAgent.name || "Agent Airtel";
+      case "mpesa": return dynamicAgents.mpesaAgent.name || "Agent M-Pesa";
+      default: return "";
+    }
   };
 
   const validateWithdrawal = () => {
@@ -278,20 +337,17 @@ export default function RetraitPage() {
       return false;
     }
 
-    // Validation pour crypto : vérifier l'adresse BEP20
     if (selectedMethod === "crypto") {
       if (!cryptoAddress.trim()) {
         alert("Veuillez saisir votre adresse BEP20.");
         return false;
       }
       
-      // Validation basique de l'adresse BEP20 (commence par 0x et fait 42 caractères)
       if (!cryptoAddress.startsWith("0x") || cryptoAddress.length !== 42) {
         alert("Veuillez saisir une adresse BEP20 valide (commence par 0x et fait 42 caractères).");
         return false;
       }
     } else {
-      // Validation pour les méthodes mobiles
       if (!recipientName.trim()) {
         alert("Veuillez saisir le nom du bénéficiaire.");
         return false;
@@ -320,12 +376,13 @@ export default function RetraitPage() {
         paymentMethod: selectedMethodData?.name || '',
         recipientPhone: selectedMethod === "crypto" ? "" : linkedWallet.number,
         recipientName: selectedMethod === "crypto" ? "" : recipientName,
-        cryptoAddress: selectedMethod === "crypto" ? cryptoAddress : "", // Nouveau champ pour crypto
+        cryptoAddress: selectedMethod === "crypto" ? cryptoAddress : "",
         agentNumber: getAgentNumber(),
+        agentName: getAgentName(),
         userPhone: userInfo.phone,
         userEmail: userInfo.email,
         userName: userInfo.name,
-        transactionId: selectedMethod !== "crypto" ? transactionId : null // Pas d'ID de transaction pour crypto
+        transactionId: selectedMethod !== "crypto" ? transactionId : null
       };
 
       const result = await financeService.createWithdrawal(userInfo.uid, withdrawalData);
@@ -338,7 +395,8 @@ export default function RetraitPage() {
           `Montant: ${formatAmount(numericAmount)} CDF\n` +
           `Frais: ${formatAmount(fees)} CDF\n` +
           `À recevoir: ${formatAmount(totalReceived)} CDF\n` +
-          `Moyen: ${selectedMethodData?.name}\n`;
+          `Moyen: ${selectedMethodData?.name}\n` +
+          `Agent: ${getAgentName()}\n`;
         
         if (selectedMethod === "crypto") {
           message += `Adresse: ${cryptoAddress}\n\n`;
@@ -352,7 +410,6 @@ export default function RetraitPage() {
         
         alert(message);
         
-        // Réinitialiser le formulaire
         setAmount("");
         setSelectedMethod(null);
         setCryptoAddress("");
@@ -404,7 +461,6 @@ export default function RetraitPage() {
     }
     setSelectedMethod(provider);
     
-    // Réinitialiser l'adresse crypto si on change de méthode
     if (provider !== "crypto") {
       setCryptoAddress("");
     }
@@ -424,7 +480,6 @@ export default function RetraitPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -448,9 +503,7 @@ export default function RetraitPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Colonne principale */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Bannière solde */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -485,7 +538,6 @@ export default function RetraitPage() {
               </div>
             </motion.div>
 
-            {/* Section Portefeuille lié */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -667,7 +719,6 @@ export default function RetraitPage() {
               </div>
             </motion.div>
 
-            {/* Section Montant */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -679,7 +730,6 @@ export default function RetraitPage() {
                 Montant à retirer
               </h2>
               
-              {/* Champ de saisie */}
               <div className="mb-8">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Saisissez le montant {selectedMethod === "crypto" ? "(minimum 30,000 CDF)" : "(minimum 3,000 CDF)"}
@@ -698,7 +748,6 @@ export default function RetraitPage() {
                 </div>
               </div>
 
-              {/* Montants rapides */}
               <div>
                 <h3 className="text-sm font-medium text-gray-600 mb-3">
                   Montants rapides
@@ -721,7 +770,6 @@ export default function RetraitPage() {
               </div>
             </motion.div>
 
-            {/* Section Moyen de retrait */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -794,7 +842,6 @@ export default function RetraitPage() {
               </div>
             </motion.div>
 
-            {/* Instructions pour le retrait */}
             <AnimatePresence>
               {selectedMethod && selectedMethodData && numericAmount >= selectedMethodData.minAmount && (
                 <motion.div
@@ -808,7 +855,6 @@ export default function RetraitPage() {
                   </h3>
                   
                   <div className="space-y-6">
-                    {/* Étape 1 : Informations bénéficiaire */}
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900 mb-3">
                         Étape 1 : Informations {selectedMethod === "crypto" ? "adresse crypto" : "bénéficiaire"}
@@ -875,7 +921,6 @@ export default function RetraitPage() {
                       )}
                     </div>
 
-                    {/* Informations du retrait */}
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900 mb-3">Récapitulatif du retrait</h4>
                       <div className={`rounded-xl p-4 border ${
@@ -927,15 +972,22 @@ export default function RetraitPage() {
                           
                           <div className="flex justify-between">
                             <span className={selectedMethod === "crypto" ? "text-amber-900" : "text-green-900"}>
-                              Frais ({selectedMethod === "crypto" ? "5%" : "10%"}) :
+                              Frais ({selectedMethod === "crypto" ? "10%" : "10%"}) :
                             </span>
                             <span className="font-semibold text-red-600">-{formatAmount(fees)} CDF</span>
                           </div>
+
+                          {/* NOUVEAU: Afficher le nom de l'agent */}
+                          {selectedMethod !== "crypto" && (
+                            <div className="flex justify-between">
+                              <span className="text-green-900">Agent :</span>
+                              <span className="font-semibold">{getAgentName()}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Avertissements */}
                     <div className={`rounded-xl p-4 border ${
                       selectedMethod === "crypto" ? "bg-amber-50 border-amber-200" : "bg-yellow-50 border-yellow-200"
                     }`}>
@@ -955,7 +1007,7 @@ export default function RetraitPage() {
                             {selectedMethod === "crypto" ? (
                               <>
                                 <li>• Délai de traitement : 15-30 minutes</li>
-                                <li>• Frais de retrait : 5% du montant retiré</li>
+                                <li>• Frais de retrait : 10% du montant retiré</li>
                                 <li>• Minimum : 30,000 CDF pour les retraits crypto</li>
                                 <li>• Utilisez toujours une adresse BEP20 valide</li>
                                 <li>• Vérifiez votre adresse avant de confirmer</li>
@@ -968,6 +1020,7 @@ export default function RetraitPage() {
                                 <li>• Horaires : Lundi au samedi, 8h00 à 16h00</li>
                                 <li>• Frais de retrait : 10% du montant retiré</li>
                                 <li>• Utilisez toujours le numéro agent officiel : {getAgentNumber()}</li>
+                                <li>• Agent : {getAgentName()}</li>
                                 <li>• Vérifiez votre numéro avant de confirmer</li>
                                 <li>• Contactez le support en cas de problème avec votre ID de transaction</li>
                               </>
@@ -982,9 +1035,7 @@ export default function RetraitPage() {
             </AnimatePresence>
           </div>
 
-          {/* Colonne latérale - Récapitulatif */}
           <div className="space-y-8">
-            {/* Récapitulatif */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -996,7 +1047,6 @@ export default function RetraitPage() {
               </h2>
               
               <div className="space-y-4">
-                {/* Montant */}
                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                   <span className="text-gray-600">Montant à retirer</span>
                   <span className="text-2xl font-bold text-gray-900">
@@ -1004,12 +1054,11 @@ export default function RetraitPage() {
                   </span>
                 </div>
                 
-                {/* Frais */}
                 {fees > 0 && (
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <div>
                       <span className="text-gray-600">Frais de retrait</span>
-                      <p className="text-xs text-gray-500">({selectedMethod === "crypto" ? "5%" : "10%"} du montant)</p>
+                      <p className="text-xs text-gray-500">({selectedMethod === "crypto" ? "10%" : "10%"} du montant)</p>
                     </div>
                     <span className="text-lg font-semibold text-red-600">
                       -{formatAmount(fees)} CDF
@@ -1017,7 +1066,6 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {/* Moyen */}
                 {selectedMethodData && (
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-gray-600">Moyen de retrait</span>
@@ -1028,7 +1076,6 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {/* Adresse crypto ou Portefeuille de réception */}
                 {selectedMethod && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -1067,7 +1114,21 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {/* ID Transaction (uniquement pour mobiles) */}
+                {/* NOUVEAU: Afficher le nom de l'agent */}
+                {selectedMethod && selectedMethod !== "crypto" && (
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">Agent de retrait</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {getAgentName()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Numéro: {getAgentNumber()}
+                    </p>
+                  </div>
+                )}
+                
                 {transactionId && selectedMethod !== "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -1085,7 +1146,6 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {/* Code USSD (uniquement pour mobiles) */}
                 {selectedMethodData && selectedMethod !== "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -1103,7 +1163,6 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {/* Total */}
                 <div className="pt-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-gray-600">À recevoir</span>
@@ -1119,7 +1178,6 @@ export default function RetraitPage() {
                 </div>
               </div>
               
-              {/* Bouton de confirmation */}
               <button
                 onClick={handleWithdrawal}
                 disabled={isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0)}
@@ -1150,7 +1208,6 @@ export default function RetraitPage() {
               )}
             </motion.div>
 
-            {/* Informations importantes */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1178,7 +1235,7 @@ export default function RetraitPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600">•</span>
                   <span className="text-sm">
-                    <strong>Frais de retrait :</strong> 10% (mobiles) / 5% (crypto)
+                    <strong>Frais de retrait :</strong> 10% (mobiles) 
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -1190,20 +1247,25 @@ export default function RetraitPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600">•</span>
                   <span className="text-sm">
+                    Agent : {selectedMethod ? getAgentName() : "À sélectionner"}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600">•</span>
+                  <span className="text-sm">
                     Conservez votre ID de transaction pour suivi
                   </span>
                 </li>
               </ul>
               
               <button
-                onClick={() => window.open('tel:+447412830186', '_blank')}
+                onClick={() => window.open('https://wa.me/447412830186', '_blank')}
                 className="w-full mt-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium"
               >
                 📞 Contacter le support
               </button>
             </motion.div>
             
-            {/* Sécurité */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}

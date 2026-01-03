@@ -21,11 +21,13 @@ import {
   Smartphone as AirtelIcon,
   Smartphone as OrangeIcon,
   Smartphone as MPesaIcon,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { financeService } from '@/lib/financeService';
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 
 export default function DepotPage() {
@@ -35,17 +37,22 @@ export default function DepotPage() {
   const [userInfo, setUserInfo] = useState({});
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [depositInfo, setDepositInfo] = useState({
-    airtelNumber: "0986343739", // Numéro agent Airtel exact
-    orangeNumber: "0841366703", // Numéro agent Orange exact
-    mpesaNumber: "0971234567", // Numéro M-Pesa par défaut
-    transactionId: "", // ID de transaction saisi par l'utilisateur
+    transactionId: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [transactionId, setTransactionId] = useState("");
-  const [usdtAmount, setUsdtAmount] = useState(""); // Pour la saisie USDT
-  const [exchangeRate] = useState(2350); // Taux de change USDT → CDF
+  const [usdtAmount, setUsdtAmount] = useState("");
+  const [exchangeRate] = useState(2350);
 
+  // NOUVEAU: États pour les portefeuilles dynamiques
+  const [dynamicWallets, setDynamicWallets] = useState({
+    airtel: { number: "", name: "" },
+    orange: { number: "", name: "" },
+    mpesa: { number: "", name: "" },
+    crypto: { number: "", name: "" }
+  });
+  const [walletsLoading, setWalletsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -65,7 +72,61 @@ export default function DepotPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // NOUVEAU: Charger les portefeuilles depuis Firestore
+  useEffect(() => {
+    const loadWallets = async () => {
+      try {
+        setWalletsLoading(true);
+        const walletsQuery = query(
+          collection(db, 'portefeuilles'),
+          where('status', '==', 'active')
+        );
+        const snapshot = await getDocs(walletsQuery);
+        
+        const wallets = {
+          airtel: { number: "", name: "" },
+          orange: { number: "", name: "" },
+          mpesa: { number: "", name: "" },
+          crypto: { number: "", name: "" }
+        };
 
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          console.log('Portefeuille chargé:', data);
+          switch(data.provider) {
+            case 'airtel':
+              wallets.airtel = { number: data.number || "", name: data.name || "" };
+              break;
+            case 'orange':
+              wallets.orange = { number: data.number || "", name: data.name || "" };
+              break;
+            case 'mpesa':
+              wallets.mpesa = { number: data.number || "", name: data.name || "" };
+              break;
+            case 'crypto':
+              wallets.crypto = { number: data.number || "", name: data.name || "" };
+              break;
+          }
+        });
+
+        setDynamicWallets(wallets);
+        
+        // Mettre à jour depositInfo avec les numéros dynamiques
+        setDepositInfo(prev => ({
+          ...prev,
+          airtelNumber: wallets.airtel.number || "0991381689",
+          orangeNumber: wallets.orange.number || "0856932804",
+          mpesaNumber: wallets.mpesa.number || "0861435993"
+        }));
+      } catch (error) {
+        console.error('Erreur chargement portefeuilles:', error);
+      } finally {
+        setWalletsLoading(false);
+      }
+    };
+
+    loadWallets();
+  }, []);
 
   const paymentMethods = [
     {
@@ -79,13 +140,13 @@ export default function DepotPage() {
       maxAmount: 5000000,
       color: "from-orange-500 to-orange-600",
       ussdCode: "*144#",
-      agentNumber: "0841366703",
+      agentNumber: dynamicWallets.orange.number || "0856932804",
       instructions: [
         "1. cadran: *144#",
         "2. Sélectionnez 2:CDF",
         "3. Sélectionnez 3:Je retire l'argent",
         "4. Sélectionnez 1:Retrait Agent(Numéro ou code agent)",
-        "5. Entrer Numéro: 0841366703",
+        "5. Entrer Numéro: " + (dynamicWallets.orange.number || "0856932804"),
         "6. Montant CDF: [montant]",
         "7. Entrer le Code Pin pour confirmer"
       ]
@@ -101,13 +162,13 @@ export default function DepotPage() {
       maxAmount: 5000000,
       color: "from-red-500 to-red-600",
       ussdCode: "*501#",
-      agentNumber: "0986343739",
+      agentNumber: dynamicWallets.airtel.number || "0991381689",
       instructions: [
         "1. cadran: *501#",
         "2. Sélectionnez 2.CDF",
         "3. Sélectionnez 2.Retrait d'argent",
         "4. Sélectionnez 1.Aupres d'un Agent",
-        "5. Entrer Code d'agent/numero: 0986343739",
+        "5. Entrer Code d'agent/numero: " + (dynamicWallets.airtel.number || "0991381689"),
         "6. Entrer montant: [montant]",
         "7. Sélectionnez 1.Oui",
         "8. Entrez votre PIN"
@@ -124,22 +185,15 @@ export default function DepotPage() {
       maxAmount: 5000000,
       color: "from-green-500 to-green-600",
       ussdCode: "*150*60#",
-      agentNumber: "0971234567",
+      agentNumber: dynamicWallets.mpesa.number || "0861435993", 
       instructions: [
-
-"1. Composez le code : Tapez *1122# sur votre téléphone et appuyez sur le bouton d'appel.",
-
-"2. Choisissez votre compte : Sélectionnez votre compte en Francs Congolais (FC).",
-
-"3. Accédez aux paiements : Choisissez l'option « Mes Paiements » (souvent le numéro 5).",
-
-"4. Sélectionnez l'option marchand : Cherchez et choisissez « Payer un Marchand » ou une option similaire, puis (motif), sur motif vous pouvez mettre 'achat produit'. Si on demande le nom du produit, mettez 'PackShop' ou '1' seulement.",
-
-"5. Entrez les détails : Saisissez le montant à payer, puis copiez le numéro indiqué en haut.",
-
-"6. Confirmez la transaction : Vérifiez les détails et entrez votre code PIN M-Pesa pour valider le paiement.",
-
-"7. M-Pesa vous enverra une notification de paiement contenant aussi l'ID de recherche que vous devrez insérer en haut ou à l'endroit recommandé."
+        "1. Composez le code : Tapez *1122# sur votre téléphone et appuyez sur le bouton d'appel.",
+        "2. Choisissez votre compte : Sélectionnez votre compte en Francs Congolais (FC).",
+        "3. Accédez aux paiements : Choisissez l'option « Mes Paiements » (souvent le numéro 5).",
+        "4. Sélectionnez l'option marchand : Cherchez et choisissez « Payer un Marchand » ou une option similaire, puis (motif), sur motif vous pouvez mettre 'achat produit'. Si on demande le nom du produit, mettez 'PackShop' ou '1' seulement.",
+        "5. Entrez les détails : Saisissez le montant à payer, puis copiez le numéro indiqué en haut.",
+        "6. Confirmez la transaction : Vérifiez les détails et entrez votre code PIN M-Pesa pour valider le paiement.",
+        "7. M-Pesa vous enverra une notification de paiement contenant aussi l'ID de recherche que vous devrez insérer en haut ou à l'endroit recommandé."
       ]
     },
      {
@@ -149,12 +203,13 @@ export default function DepotPage() {
       description: "Dépôt en USDT BEP20",
       processingTime: "15-30min",
       fees: "0%",
-      minAmount: 1, // Minimum en USDT
-      maxAmount: 17857, // Maximum en USDT (50,000,000 CDF / 2800)
+      minAmount: 1,
+      maxAmount: 17857,
       color: "from-amber-500 to-amber-600",
-      walletAddress: "pp20",
+      walletAddress: "BEP20",
       network: "BEP20",
       coin: "USDT",
+      agentNumber: dynamicWallets.crypto.number || "BEP20",
       instructions: [
         "1. Ouvrez votre portefeuille crypto (Trust Wallet, Binance, MetaMask, etc.)",
         "2. Sélectionnez USDT (Tether) pour l'envoi",
@@ -183,7 +238,7 @@ export default function DepotPage() {
     const method = paymentMethods.find(m => m.id === selectedMethod);
     
     if (!method) return 0;
-    return 0; // Frais à 0% pour tous
+    return 0;
   };
 
   const generateTransactionId = () => {
@@ -201,12 +256,10 @@ export default function DepotPage() {
     return value.toLocaleString("fr-FR");
   };
 
-  // Conversion USDT → CDF
   const convertUsdtToCdf = (usdt) => {
     return Math.floor(usdt * exchangeRate);
   };
 
-  // Conversion CDF → USDT
   const convertCdfToUsdt = (cdf) => {
     return (cdf / exchangeRate).toFixed(2);
   };
@@ -246,7 +299,6 @@ export default function DepotPage() {
   };
 
   const validateDeposit = () => {
-    // Validation pour les méthodes mobiles
     if (selectedMethod !== "crypto") {
       if (!numericAmount) {
         alert("Veuillez saisir un montant à déposer.");
@@ -264,7 +316,6 @@ export default function DepotPage() {
       }
     }
 
-    // Validation pour crypto
     if (selectedMethod === "crypto") {
       if (!usdtAmount || parseFloat(usdtAmount) < selectedMethodData?.minAmount) {
         alert(`Le montant minimum est de ${selectedMethodData?.minAmount} USDT (environ ${formatAmount(selectedMethodData?.minAmount * exchangeRate)} CDF).`);
@@ -302,7 +353,6 @@ export default function DepotPage() {
     setIsProcessing(true);
 
     try {
-      // Déterminer le montant final en fonction de la méthode
       let finalAmount = numericAmount;
       let finalUsdtAmount = null;
       
@@ -316,6 +366,7 @@ export default function DepotPage() {
         usdtAmount: finalUsdtAmount,
         paymentMethod: selectedMethodData?.name || '',
         agentNumber: getPhoneNumber(),
+        agentName: getAgentName(),
         transactionId: transactionId,
         fees: fees,
         totalAmount: selectedMethod === "crypto" ? finalAmount : totalToSend,
@@ -340,6 +391,7 @@ export default function DepotPage() {
         }
         
         successMessage += `Moyen: ${selectedMethodData?.name}\n`;
+        successMessage += `Nom Agent: ${getAgentName()}\n`;
         
         if (selectedMethod === "crypto") {
           successMessage += `Adresse: ${getPhoneNumber()}\n`;
@@ -352,7 +404,6 @@ export default function DepotPage() {
         
         alert(successMessage);
         
-        // Réinitialiser le formulaire
         setAmount("");
         setUsdtAmount("");
         setSelectedMethod(null);
@@ -376,10 +427,22 @@ export default function DepotPage() {
   const getPhoneNumber = () => {
     if (!selectedMethod) return "";
     switch(selectedMethod) {
-      case "orange": return depositInfo.orangeNumber;
-      case "airtel": return depositInfo.airtelNumber;
-      case "mpesa": return depositInfo.mpesaNumber;
-      case "crypto": return "pp20"; // Portefeuille recharge en USDT BEP20
+      case "orange": return dynamicWallets.orange.number || "0856932804";
+      case "airtel": return dynamicWallets.airtel.number || "0991381689";
+      case "mpesa": return dynamicWallets.mpesa.number || "0861435993";
+      case "crypto": return dynamicWallets.crypto.number || "BEP20";
+      default: return "";
+    }
+  };
+
+  // NOUVEAU: Récupérer le nom associé au portefeuille
+  const getAgentName = () => {
+    if (!selectedMethod) return "";
+    switch(selectedMethod) {
+      case "orange": return dynamicWallets.orange.name || "Agent Orange";
+      case "airtel": return dynamicWallets.airtel.name || "Agent Airtel";
+      case "mpesa": return dynamicWallets.mpesa.name || "Agent M-Pesa";
+      case "crypto": return dynamicWallets.crypto.name || "Portefeuille Crypto";
       default: return "";
     }
   };
@@ -395,7 +458,6 @@ export default function DepotPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -419,9 +481,7 @@ export default function DepotPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Colonne principale */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Bannière promotion */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -454,7 +514,6 @@ export default function DepotPage() {
               )}
             </motion.div>
 
-            {/* Section Montant */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -466,7 +525,6 @@ export default function DepotPage() {
                 Montant à déposer
               </h2>
               
-              {/* Champ de saisie pour CDF */}
               {selectedMethod !== "crypto" && (
                 <div className="mb-8">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -487,7 +545,6 @@ export default function DepotPage() {
                 </div>
               )}
               
-              {/* Champ de saisie pour USDT (crypto) */}
               {selectedMethod === "crypto" && (
                 <div className="mb-8">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -506,7 +563,6 @@ export default function DepotPage() {
                     />
                   </div>
                   
-                  {/* Conversion en CDF */}
                   {usdtAmount && !isNaN(usdtAmount) && (
                     <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
                       <div className="flex items-center justify-between">
@@ -523,7 +579,6 @@ export default function DepotPage() {
                 </div>
               )}
 
-              {/* Montants rapides */}
               <div>
                 <h3 className="text-sm font-medium text-gray-600 mb-3">
                   Montants recommandés
@@ -556,7 +611,6 @@ export default function DepotPage() {
                 </div>
               </div>
 
-              {/* Objectif recommandé */}
               {selectedMethodData && (
                 <div className={`mt-6 p-4 rounded-xl border ${
                   selectedMethod === "crypto" 
@@ -581,7 +635,6 @@ export default function DepotPage() {
               )}
             </motion.div>
 
-            {/* Section Moyen de dépôt */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -601,7 +654,6 @@ export default function DepotPage() {
                     onClick={() => {
                       setSelectedMethod(method.id);
                       if (method.id === "crypto" && amount) {
-                        // Convertir le montant CDF en USDT
                         const usdtValue = convertCdfToUsdt(numericAmount);
                         setUsdtAmount(usdtValue);
                       } else if (method.id !== "crypto") {
@@ -665,7 +717,6 @@ export default function DepotPage() {
               </div>
             </motion.div>
 
-            {/* Instructions selon le moyen sélectionné */}
             <AnimatePresence>
               {selectedMethod && selectedMethodData && (
                 (selectedMethod === "crypto" 
@@ -686,7 +737,6 @@ export default function DepotPage() {
                   </h3>
                   
                   <div className="space-y-6">
-                    {/* Étape 1 - Différent selon la méthode */}
                     {selectedMethod === "crypto" ? (
                       <div>
                         <h4 className="text-lg font-semibold text-gray-900 mb-3">Étape 1</h4>
@@ -694,11 +744,12 @@ export default function DepotPage() {
                           <p className="text-sm font-medium text-gray-600 mb-2">Copier l'adresse de dépôt :</p>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-lg font-bold text-gray-900">{selectedMethodData.name}</p>
+                              {/* NOUVEAU: Afficher le nom dynamique */}
+                              <p className="text-lg font-bold text-gray-900">{getAgentName()}</p>
                               <div className="mt-2">
                                 <p className="text-sm text-gray-500 mb-1">Portefeuille recharge en USDT BEP20 :</p>
                                 <p className="text-lg font-mono text-gray-900 bg-gray-100 p-2 rounded break-all">
-                               0xBFd95ed5A4a1E789fC36CB00E8A3Ea0314E246A8
+                                  0xBFd95ed5A4a1E789fC36CB00E8A3Ea0314E246A8
                                 </p>
                               </div>
                               <div className="mt-2">
@@ -713,7 +764,7 @@ export default function DepotPage() {
                               </div>
                             </div>
                             <button
-                              onClick={() => copyToClipboard("pp20", "cryptoAddress")}
+                              onClick={() => copyToClipboard("0xBFd95ed5A4a1E789fC36CB00E8A3Ea0314E246A8", "cryptoAddress")}
                               className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
                             >
                               <Copy className="w-4 h-4" />
@@ -729,7 +780,8 @@ export default function DepotPage() {
                           <p className="text-sm font-medium text-gray-600 mb-2">Copier le compte du portefeuille:</p>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-lg font-bold text-gray-900">{selectedMethodData.name}</p>
+                              {/* NOUVEAU: Afficher le nom dynamique */}
+                              <p className="text-lg font-bold text-gray-900">{getAgentName()}</p>
                               <p className="text-xl font-bold text-gray-900 mt-1">{getPhoneNumber()}</p>
                               <p className="text-sm text-gray-500 mt-1">(Numéro Agent)</p>
                             </div>
@@ -745,7 +797,6 @@ export default function DepotPage() {
                       </div>
                     )}
 
-                    {/* Étape 2 */}
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900 mb-3">Étape 2</h4>
                       <div className="bg-gray-50 rounded-xl p-4">
@@ -774,7 +825,6 @@ export default function DepotPage() {
                       </div>
                     </div>
 
-                    {/* Instructions de paiement */}
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900 mb-3">
                         {selectedMethod === "crypto" ? "Étapes de transfert :" : "Étapes de paiement :"}
@@ -804,7 +854,6 @@ export default function DepotPage() {
                       </div>
                     </div>
 
-                    {/* Avertissements */}
                     <div className={`rounded-xl p-4 border ${
                       selectedMethod === "crypto" 
                         ? "bg-amber-50 border-amber-200" 
@@ -830,7 +879,7 @@ export default function DepotPage() {
                               <>
                                 <li>• Envoyez uniquement des USDT sur le réseau BEP20 (Binance Smart Chain)</li>
                                 <li>• N'envoyez pas d'autres cryptomonnaies à cette adresse</li>
-                                <li>• Vérifiez 3 fois l'adresse (pp20) avant d'envoyer</li>
+                                <li>• Vérifiez 3 fois l'adresse (BEP20) avant d'envoyer</li>
                                 <li>• Les transactions peuvent prendre 15-30 minutes</li>
                                 <li>• Gardez votre TXID/Hash comme preuve de transaction</li>
                                 <li>• Les frais réseau (BSC) sont à votre charge</li>
@@ -857,9 +906,7 @@ export default function DepotPage() {
             </AnimatePresence>
           </div>
 
-          {/* Colonne latérale - Récapitulatif */}
           <div className="space-y-8">
-            {/* Récapitulatif */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -871,7 +918,6 @@ export default function DepotPage() {
               </h2>
               
               <div className="space-y-4">
-                {/* Montant déposé */}
                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                   <span className="text-gray-600">
                     {selectedMethod === "crypto" ? "Montant en USDT" : "Montant à déposer"}
@@ -891,7 +937,6 @@ export default function DepotPage() {
                   </div>
                 </div>
                 
-                {/* Frais */}
                 {fees > 0 && (
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-gray-600">Frais de transaction</span>
@@ -901,7 +946,6 @@ export default function DepotPage() {
                   </div>
                 )}
                 
-                {/* Total à envoyer */}
                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                   <span className="text-gray-600">Total à envoyer</span>
                   <div className="text-right">
@@ -921,7 +965,6 @@ export default function DepotPage() {
                   </div>
                 </div>
                 
-                {/* Moyen */}
                 {selectedMethodData && (
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <span className="text-gray-600">Moyen de dépôt</span>
@@ -932,7 +975,6 @@ export default function DepotPage() {
                   </div>
                 )}
                 
-                {/* Adresse Crypto ou Numéro Agent */}
                 {selectedMethod && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -954,17 +996,24 @@ export default function DepotPage() {
                         <div className="mt-2 text-xs text-gray-600">
                           <p>Réseau: <span className="font-semibold">BEP20</span></p>
                           <p>Crypto: <span className="font-semibold">USDT</span></p>
+                          {/* NOUVEAU: Afficher le nom */}
+                          <p>Nom: <span className="font-semibold">{getAgentName()}</span></p>
                         </div>
                       </>
                     ) : (
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {getPhoneNumber()}
-                      </p>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {getPhoneNumber()}
+                        </p>
+                        {/* NOUVEAU: Afficher le nom */}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Nom: {getAgentName()}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
                 
-                {/* ID Transaction */}
                 {transactionId && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -984,7 +1033,6 @@ export default function DepotPage() {
                   </div>
                 )}
                 
-                {/* USSD Code (uniquement pour mobile money) */}
                 {selectedMethodData && selectedMethod !== "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -1002,7 +1050,6 @@ export default function DepotPage() {
                   </div>
                 )}
                 
-                {/* Taux de change pour crypto */}
                 {selectedMethod === "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center">
@@ -1014,7 +1061,6 @@ export default function DepotPage() {
                   </div>
                 )}
                 
-                {/* Délai */}
                 <div className="pt-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Clock className="w-5 h-5 text-gray-500" />
@@ -1028,7 +1074,6 @@ export default function DepotPage() {
                 </div>
               </div>
               
-              {/* Bouton de confirmation */}
               <button
                 onClick={handleDeposit}
                 disabled={isProcessing || 
@@ -1078,7 +1123,6 @@ export default function DepotPage() {
               )}
             </motion.div>
 
-            {/* Support */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1116,7 +1160,7 @@ export default function DepotPage() {
               </ul>
               
               <button
-                onClick={() => window.open('https://chat.whatsapp.com/FTZfrDIk81IL1MtC3JjxdR', '_blank')}
+                onClick={() => window.open('https://wa.me/447412830186', '_blank')}
                 className="w-full mt-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
                 <span>💬</span>
@@ -1124,7 +1168,6 @@ export default function DepotPage() {
               </button>
             </motion.div>
             
-            {/* Avantages */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}

@@ -37,7 +37,7 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
   // Options du menu
   console.log("inviteCode:", inviteCode);
   const menuOptions = [
-    // { id: 1, icon: Settings, label: "Paramètres", href: "/settings" },
+    { id: 1, icon: Wallet, label: "Historique des revenus", href: "/revenue-history" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },

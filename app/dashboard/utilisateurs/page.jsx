@@ -31,7 +31,11 @@ import {
   Clock,
   DollarSign,
   BarChart3,
-  Loader2
+  Loader2,
+  PlusCircle,
+  MinusCircle,
+  History,
+  LogOut
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -48,8 +52,12 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
+  serverTimestamp,
+  increment,
+  arrayUnion
 } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function UtilisateursPage() {
   const [filter, setFilter] = useState('all');
@@ -61,21 +69,67 @@ export default function UtilisateursPage() {
   
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [balanceDrawerOpen, setBalanceDrawerOpen] = useState(false); // NOUVEAU
   const [selectedUser, setSelectedUser] = useState(null);
   const [userDetails, setUserDetails] = useState(null);
   const [userWallet, setUserWallet] = useState(null);
   const [userTransactions, setUserTransactions] = useState([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
   
+  // NOUVEAU: État pour la modification du solde
+ const [balanceForm, setBalanceForm] = useState({
+  type: 'add', // 'add' ou 'remove'
+  amount: '',
+  reason: '',
+  notes: '',
+  balanceType: 'wallet' // NOUVEAU: 'wallet', 'action', ou 'referralEarnings'
+})
+  
+  const [balanceHistory, setBalanceHistory] = useState([]); // NOUVEAU
+  const [balanceHistoryLoading, setBalanceHistoryLoading] = useState(false); // NOUVEAU
+   const  {user} = useAuth();
+
+
   const [editForm, setEditForm] = useState({
     phone: '',
     email: '',
     displayName: '',
     role: 'user',
     status: 'active',
-    invitationCode: ''
+    invitationCode: '' ,
+    fullName: ''
   });
 
+
+
+
+const getCurrentBalance = (balanceType) => {
+  if (!userWallet) return 0;
+  
+  switch(balanceType) {
+    case 'wallet':
+      return userWallet.available || 0;
+    case 'action':
+      return userWallet.invested || 0;
+    case 'referralEarnings':
+      return userWallet.referralEarnings || 0;
+    default:
+      return userWallet.available || 0;
+  }
+};
+
+const getBalanceLabel = (balanceType) => {
+  switch(balanceType) {
+    case 'wallet':
+      return 'Solde Disponible';
+    case 'action':
+      return 'Solde Investi';
+    case 'referralEarnings':
+      return 'Gains Parrainage';
+    default:
+      return 'Solde';
+  }
+};
   useEffect(() => {
     loadUsers();
   }, []);
@@ -130,8 +184,12 @@ export default function UtilisateursPage() {
           referralEarnings: walletData.stats?.referralEarnings || 0,
           totalEarned: walletData.stats?.totalEarned || 0,
           totalInvested: walletData.stats?.totalInvested || 0,
-          totalWithdrawn: walletData.stats?.totalWithdrawn || 0
+          totalWithdrawn: walletData.stats?.totalWithdrawn || 0,
+          balanceHistory: walletData.balanceHistory || [] // NOUVEAU
         });
+        
+        // Charger l'historique des modifications de solde
+        setBalanceHistory(walletData.balanceHistory || []);
       }
 
       const transactionsQuery = query(
@@ -153,6 +211,22 @@ export default function UtilisateursPage() {
     }
   };
 
+  // NOUVEAU: Charger l'historique des modifications de solde
+  const loadBalanceHistory = async (userId) => {
+    try {
+      setBalanceHistoryLoading(true);
+      const walletDoc = await getDoc(doc(db, 'wallets', userId));
+      if (walletDoc.exists()) {
+        const walletData = walletDoc.data();
+        setBalanceHistory(walletData.balanceHistory || []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement historique solde:', error);
+    } finally {
+      setBalanceHistoryLoading(false);
+    }
+  };
+
   const handleViewUser = async (user) => {
     setSelectedUser(user);
     await loadUserDetails(user.id);
@@ -165,6 +239,20 @@ export default function UtilisateursPage() {
     setEditDrawerOpen(true);
   };
 
+  // NOUVEAU: Ouvrir le drawer de modification du solde
+ const handleBalanceModification = async (user) => {
+  setSelectedUser(user);
+  await loadUserDetails(user.id);
+  setBalanceForm({
+    type: 'add',
+    amount: '',
+    reason: '',
+    notes: '',
+    balanceType: 'wallet' // Par défaut sur solde disponible
+  });
+  setBalanceDrawerOpen(true);
+};
+
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
     
@@ -174,7 +262,7 @@ export default function UtilisateursPage() {
       
       await updateDoc(userRef, {
         ...editForm,
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
       
       alert('Utilisateur mis à jour avec succès !');
@@ -187,6 +275,128 @@ export default function UtilisateursPage() {
       setActionLoading(false);
     }
   };
+
+  // NOUVEAU: Fonction pour modifier le solde
+// Cherchez cette fonction et modifiez-la :
+const handleBalanceUpdate = async () => {
+  if (!selectedUser || !balanceForm.amount || isNaN(parseFloat(balanceForm.amount))) {
+    alert('Veuillez saisir un montant valide');
+    return;
+  }
+
+  const amount = parseFloat(balanceForm.amount);
+  if (amount <= 0) {
+    alert('Le montant doit être supérieur à 0');
+    return;
+  }
+
+  // Vérification du solde disponible seulement pour le retrait du wallet
+  if (balanceForm.type === 'remove' && balanceForm.balanceType === 'wallet') {
+    const currentBalance = getCurrentBalance(balanceForm.balanceType);
+    if (amount > currentBalance) {
+      alert(`Le solde disponible est insuffisant. Solde actuel: ${formatAmount(currentBalance)} CDF`);
+      return;
+    }
+  }
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    alert('Vous devez être connecté pour effectuer cette action');
+    return;
+  }
+
+  const adminName = currentUser.displayName || currentUser.email || 'Administrateur';
+  
+  if (!confirm(`${balanceForm.type === 'add' ? 'Ajouter' : 'Retirer'} ${formatAmount(amount)} CDF du ${getBalanceLabel(balanceForm.balanceType)} de ${selectedUser.displayName || selectedUser.email || selectedUser.phone} ?`)) {
+    return;
+  }
+
+  try {
+    setActionLoading(true);
+    const walletRef = doc(db, 'wallets', selectedUser.id);
+    const userDoc = await getDoc(walletRef);
+    
+    if (!userDoc.exists()) {
+      alert('Portefeuille utilisateur non trouvé');
+      return;
+    }
+
+    // Déterminer le chemin Firestore selon le type de solde
+    let firestorePath = '';
+    switch(balanceForm.balanceType) {
+      case 'wallet':
+        firestorePath = 'balances.wallet.amount';
+        break;
+      case 'action':
+        firestorePath = 'balances.action.amount';
+        break;
+      case 'referralEarnings':
+        firestorePath = 'stats.referralEarnings';
+        break;
+      default:
+        firestorePath = 'balances.wallet.amount';
+    }
+
+    const currentBalance = userDoc.data()?.balances?.wallet?.amount || 
+                          userDoc.data()?.balances?.action?.amount || 
+                          userDoc.data()?.stats?.referralEarnings || 0;
+    
+    const newAmount = balanceForm.type === 'add' ? amount : -amount;
+    const newBalance = currentBalance + newAmount;
+
+    // Créer l'entrée d'historique
+    const balanceHistoryEntry = {
+      type: balanceForm.type,
+      amount: amount,
+      balanceType: balanceForm.balanceType,
+      balanceLabel: getBalanceLabel(balanceForm.balanceType),
+      previousBalance: currentBalance,
+      newBalance: newBalance,
+      reason: balanceForm.reason,
+      notes: balanceForm.notes,
+      adminId: currentUser.uid,
+      adminName: adminName,
+      timestamp: serverTimestamp(),
+      date: new Date().toISOString()
+    };
+
+    // Mettre à jour le solde spécifique et l'historique
+    await updateDoc(walletRef, {
+      [firestorePath]: newBalance,
+      'balanceHistory': arrayUnion(balanceHistoryEntry),
+      updatedAt: serverTimestamp()
+    });
+
+    // Mettre à jour les statistiques globales si c'est un ajout au wallet
+    if (balanceForm.type === 'add' && balanceForm.balanceType === 'wallet') {
+      await updateDoc(walletRef, {
+        'balances.totalDeposited.amount': increment(amount),
+        'stats.totalEarned': increment(amount)
+      });
+    }
+
+    alert(`✅ ${getBalanceLabel(balanceForm.balanceType)} ${balanceForm.type === 'add' ? 'ajouté' : 'retiré'} avec succès !\nNouveau solde: ${formatAmount(newBalance)} CDF`);
+    
+    // Réinitialiser le formulaire
+    setBalanceForm({
+      type: 'add',
+      amount: '',
+      reason: '',
+      notes: '',
+      balanceType: 'wallet'
+    });
+    
+    // Recharger les données
+    await loadUserDetails(selectedUser.id);
+    await loadBalanceHistory(selectedUser.id);
+    
+  } catch (error) {
+    console.error('Erreur modification solde:', error);
+    alert('Erreur lors de la modification du solde');
+  } finally {
+    setActionLoading(false);
+  }
+};
 
   const handleUserAction = async (action, userId) => {
     const user = users.find(u => u.id === userId);
@@ -210,14 +420,14 @@ export default function UtilisateursPage() {
         case 'activate':
           await updateDoc(userRef, { 
             status: 'active',
-            updatedAt: new Date()
+            updatedAt: serverTimestamp()
           });
           alert(`${user.displayName || user.email || user.phone} activé !`);
           break;
         case 'suspend':
           await updateDoc(userRef, { 
             status: 'suspended',
-            updatedAt: new Date()
+            updatedAt: serverTimestamp()
           });
           alert(`${user.displayName || user.email || user.phone} suspendu !`);
           break;
@@ -258,13 +468,13 @@ export default function UtilisateursPage() {
           case 'activate':
             await updateDoc(userRef, { 
               status: 'active',
-              updatedAt: new Date()
+              updatedAt: serverTimestamp()
             });
             break;
           case 'suspend':
             await updateDoc(userRef, { 
               status: 'suspended',
-              updatedAt: new Date()
+              updatedAt: serverTimestamp()
             });
             break;
           case 'delete':
@@ -326,6 +536,20 @@ export default function UtilisateursPage() {
 
   const formatAmount = (amount) => {
     return amount?.toLocaleString('fr-FR') || '0';
+  };
+
+  // NOUVEAU: Formater la date pour l'historique
+  const formatHistoryDate = (date) => {
+    if (!date) return 'Date inconnue';
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
   };
 
   const toggleUserSelection = (userId) => {
@@ -535,11 +759,11 @@ export default function UtilisateursPage() {
                         <td className="px-2 sm:px-4 py-3">
                           <div className="flex items-center">
                             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
-                              {user.displayName?.charAt(0) || user.email?.charAt(0) || user.phone?.charAt(0) || 'U'}
+                              {user.fullName?.charAt(0) || user.email?.charAt(0) || user.phone?.charAt(0) || 'U'}
                             </div>
                             <div className="ml-2 sm:ml-3 min-w-0">
                               <div className="text-sm font-medium text-gray-900 truncate">
-                                {user.phone || user.displayName || 'Sans nom'}
+                                {user.fullName || user.fullName || 'Sans nom'}
                               </div>
                               <div className="text-xs text-gray-500 flex items-center truncate">
                                 <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
@@ -590,6 +814,14 @@ export default function UtilisateursPage() {
                               title="Modifier"
                             >
                               <Edit className="w-4 h-4" />
+                            </button>
+                            {/* NOUVEAU: Bouton pour modifier le solde */}
+                            <button
+                              onClick={() => handleBalanceModification(user)}
+                              className="text-green-600 hover:text-green-900 p-1"
+                              title="Modifier le solde"
+                            >
+                              <DollarSign className="w-4 h-4" />
                             </button>
                             {user.status === 'suspended' ? (
                               <button 
@@ -647,7 +879,7 @@ export default function UtilisateursPage() {
       <Drawer
         isOpen={viewDrawerOpen}
         onClose={() => setViewDrawerOpen(false)}
-        title={`Profil de ${selectedUser?.displayName || selectedUser?.email || selectedUser?.phone}`}
+        title={`Profil de ${selectedUser?.fullName || selectedUser?.email || selectedUser?.phone}`}
         size="lg"
         loading={drawerLoading}
       >
@@ -662,7 +894,7 @@ export default function UtilisateursPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-xs sm:text-sm font-medium text-gray-500">Nom complet</label>
-                  <p className="text-gray-900 text-sm sm:text-base">{userDetails.displayName || 'Non spécifié'}</p>
+                  <p className="text-gray-900 text-sm sm:text-base">{userDetails.fullName || 'Non spécifié'}</p>
                 </div>
                 <div>
                   <label className="text-xs sm:text-sm font-medium text-gray-500">Email</label>
@@ -735,6 +967,113 @@ export default function UtilisateursPage() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* NOUVEAU: Historique des modifications de solde */}
+            <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-5">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-1 sm:gap-2">
+                  <History className="w-4 sm:w-5 h-4 sm:h-5" />
+                  Historique des modifications de solde
+                </h3>
+                <button
+                  onClick={() => loadBalanceHistory(selectedUser.id)}
+                  disabled={balanceHistoryLoading}
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs sm:text-sm text-gray-700 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 sm:w-4 h-3 sm:h-4 ${balanceHistoryLoading ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </button>
+              </div>
+              
+              {balanceHistory.length > 0 ? (
+                <div className="space-y-2 sm:space-y-3 max-h-60 sm:max-h-80 overflow-y-auto pr-2">
+                  {balanceHistory
+                    .sort((a, b) => {
+                      const dateA = a.timestamp?.toDate?.() || new Date(a.date || 0);
+                      const dateB = b.timestamp?.toDate?.() || new Date(b.date || 0);
+                      return dateB - dateA;
+                    })
+                    .map((entry, index) => (
+                      <div 
+                        key={index} 
+                        className={`p-3 rounded-lg border ${
+                          entry.type === 'add' 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-red-50 border-red-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            {entry.type === 'add' ? (
+                              <PlusCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <MinusCircle className="w-4 h-4 text-red-600" />
+                            )}
+                            <span className={`font-semibold ${
+                              entry.type === 'add' ? 'text-green-700' : 'text-red-700'
+                            }`}>
+                              {entry.type === 'add' ? '+' : '-'}{formatAmount(entry.amount)} CDF
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {formatHistoryDate(entry.timestamp || entry.date)}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-600">Ancien solde:</span>{' '}
+                            <span className="font-medium">{formatAmount(entry.previousBalance)} CDF</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Nouveau solde:</span>{' '}
+                            <span className="font-medium">{formatAmount(entry.newBalance)} CDF</span>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <span className="text-gray-600">Administrateur:</span>{' '}
+                            <span className="font-medium">{entry.adminName || 'Système'}</span>
+                          </div>
+                          {entry.reason && (
+                            <div className="sm:col-span-2">
+                              <span className="text-gray-600">Motif:</span>{' '}
+                              <span className="font-medium">{entry.reason}</span>
+                            </div>
+                          )}
+                          {entry.notes && (
+                            <div className="sm:col-span-2">
+                              <span className="text-gray-600">Notes:</span>{' '}
+                              <span className="text-gray-700">{entry.notes}</span>
+                            </div>
+                          )}
+                        </div>
+                        // Cherchez dans l'historique et ajoutez après le montant :
+<div className="mb-1">
+  <div className="flex items-center gap-2">
+    {entry.type === 'add' ? (
+      <PlusCircle className="w-4 h-4 text-green-600" />
+    ) : (
+      <MinusCircle className="w-4 h-4 text-red-600" />
+    )}
+    <span className={`font-semibold ${
+      entry.type === 'add' ? 'text-green-700' : 'text-red-700'
+    }`}>
+      {entry.type === 'add' ? '+' : '-'}{formatAmount(entry.amount)} CDF
+    </span>
+    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+      {entry.balanceLabel || 'Solde Disponible'}
+    </span>
+  </div>
+</div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <History className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">Aucune modification de solde enregistrée</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -822,6 +1161,268 @@ export default function UtilisateursPage() {
             </button>
           </div>
         </div>
+      </Drawer>
+
+      {/* NOUVEAU: Drawer de modification du solde */}
+      <Drawer
+        isOpen={balanceDrawerOpen}
+        onClose={() => setBalanceDrawerOpen(false)}
+        title={`Modifier le solde de ${selectedUser?.displayName || selectedUser?.email || selectedUser?.phone}`}
+        size="md"
+      >
+        {selectedUser && userWallet && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Informations sur le solde actuel */}
+          <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Type de solde à modifier
+      </label>
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => setBalanceForm({...balanceForm, balanceType: 'wallet'})}
+          className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+            balanceForm.balanceType === 'wallet'
+              ? 'border-blue-500 bg-blue-50 text-blue-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+          }`}
+        >
+          <CreditCard className="w-5 h-5 mb-1" />
+          <span className="text-xs font-medium">Disponible</span>
+          <span className="text-xs mt-1">{formatAmount(userWallet.available)} CDF</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBalanceForm({...balanceForm, balanceType: 'action'})}
+          className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+            balanceForm.balanceType === 'action'
+              ? 'border-green-500 bg-green-50 text-green-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-green-300'
+          }`}
+        >
+          <TrendingUp className="w-5 h-5 mb-1" />
+          <span className="text-xs font-medium">Investi</span>
+          <span className="text-xs mt-1">{formatAmount(userWallet.invested)} CDF</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBalanceForm({...balanceForm, balanceType: 'referralEarnings'})}
+          className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+            balanceForm.balanceType === 'referralEarnings'
+              ? 'border-amber-500 bg-amber-50 text-amber-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-amber-300'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 mb-1" />
+          <span className="text-xs font-medium">Parrainage</span>
+          <span className="text-xs mt-1">{formatAmount(userWallet.referralEarnings)} CDF</span>
+        </button>
+      </div>
+    </div>
+
+    {/* Informations sur le solde actuel */}
+    <div className={`rounded-lg sm:rounded-xl p-4 border ${
+      balanceForm.balanceType === 'wallet' ? 'bg-blue-50 border-blue-200' :
+      balanceForm.balanceType === 'action' ? 'bg-green-50 border-green-200' :
+      'bg-amber-50 border-amber-200'
+    }`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`text-sm font-medium ${
+          balanceForm.balanceType === 'wallet' ? 'text-blue-900' :
+          balanceForm.balanceType === 'action' ? 'text-green-900' :
+          'text-amber-900'
+        }`}>
+          {getBalanceLabel(balanceForm.balanceType)} actuel
+        </span>
+        <span className={`text-lg sm:text-xl font-bold ${
+          balanceForm.balanceType === 'wallet' ? 'text-blue-700' :
+          balanceForm.balanceType === 'action' ? 'text-green-700' :
+          'text-amber-700'
+        }`}>
+          {formatAmount(getCurrentBalance(balanceForm.balanceType))} CDF
+        </span>
+      </div>
+      <p className={`text-xs ${
+        balanceForm.balanceType === 'wallet' ? 'text-blue-600' :
+        balanceForm.balanceType === 'action' ? 'text-green-600' :
+        'text-amber-600'
+      }`}>
+        {balanceForm.balanceType === 'wallet' 
+          ? 'Solde disponible pour investissements et retraits'
+          : balanceForm.balanceType === 'action'
+          ? 'Montant actuellement investi dans des actions'
+          : 'Gains cumulés provenant du parrainage'
+        }
+      </p>
+    </div>
+
+            {/* Formulaire de modification */}
+            <div className="space-y-3 sm:space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type d'opération
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBalanceForm({...balanceForm, type: 'add'})}
+                    className={`p-3 sm:p-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all ${
+                      balanceForm.type === 'add'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-green-300'
+                    }`}
+                  >
+                    <PlusCircle className="w-6 h-6 mb-2" />
+                    <span className="font-semibold">Ajouter</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBalanceForm({...balanceForm, type: 'remove'})}
+                    className={`p-3 sm:p-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all ${
+                      balanceForm.type === 'remove'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-red-300'
+                    }`}
+                  >
+                    <MinusCircle className="w-6 h-6 mb-2" />
+                    <span className="font-semibold">Retirer</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Montant (CDF)
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-gray-500">CDF</span>
+                  </div>
+                  <input
+                    type="number"
+                    value={balanceForm.amount}
+                    onChange={(e) => setBalanceForm({...balanceForm, amount: e.target.value})}
+                    className="w-full pl-16 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                    placeholder="0"
+                    min="1"
+                    step="100"
+                  />
+                </div>
+             {balanceForm.amount && !isNaN(parseFloat(balanceForm.amount)) && (
+  <div className={`mt-2 p-2 rounded ${
+    balanceForm.type === 'add'
+      ? 'bg-green-50 text-green-700'
+      : 'bg-red-50 text-red-700'
+  }`}>
+    <div className="flex justify-between text-sm">
+      <span>Nouveau solde:</span>
+      <span className="font-bold">
+        {formatAmount(
+          balanceForm.type === 'add'
+            ? getCurrentBalance(balanceForm.balanceType) + parseFloat(balanceForm.amount)
+            : getCurrentBalance(balanceForm.balanceType) - parseFloat(balanceForm.amount)
+        )} CDF
+      </span>
+    </div>
+    {balanceForm.type === 'remove' && 
+     balanceForm.balanceType === 'wallet' && 
+     parseFloat(balanceForm.amount) > getCurrentBalance(balanceForm.balanceType) && (
+      <p className="text-xs mt-1 font-medium">
+        ⚠️ Le montant à retirer dépasse le solde disponible
+      </p>
+    )}
+  </div>
+)}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Motif (optionnel mais recommandé)
+                </label>
+                <select
+                  value={balanceForm.reason}
+                  onChange={(e) => setBalanceForm({...balanceForm, reason: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
+                >
+                  <option value="">Sélectionner un motif</option>
+                  <option value="correction">Correction de solde</option>
+                  <option value="bonus">Bonus promotionnel</option>
+                  <option value="compensation">Compensation</option>
+                  <option value="erreur">Correction d'erreur</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes supplémentaires (optionnel)
+                </label>
+                <textarea
+                  value={balanceForm.notes}
+                  onChange={(e) => setBalanceForm({...balanceForm, notes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
+                  placeholder="Détails supplémentaires sur cette modification..."
+                  rows="3"
+                />
+              </div>
+
+              {/* Informations d'audit */}
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p className="text-xs text-gray-600 mb-1">
+                  Cette modification sera enregistrée avec:
+                </p>
+                <ul className="text-xs text-gray-500 space-y-1">
+                  <li>• Date et heure actuelles</li>
+                  <li>• Votre nom d'administrateur</li>
+                  <li>• Le motif spécifié</li>
+                  <li>• Les notes fournies</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 sm:pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleBalanceUpdate}
+                  disabled={actionLoading || !balanceForm.amount || 
+  (balanceForm.type === 'remove' && 
+   balanceForm.balanceType === 'wallet' && 
+   parseFloat(balanceForm.amount) > getCurrentBalance(balanceForm.balanceType))}
+                  className={`w-full px-4 py-3 rounded-lg font-semibold text-sm sm:text-base transition-all ${
+                    actionLoading || !balanceForm.amount || 
+                    (balanceForm.type === 'remove' && parseFloat(balanceForm.amount) > userWallet.available)
+                      ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                      : balanceForm.type === 'add'
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
+                >
+                  {actionLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Traitement en cours...
+                    </span>
+                  ) : (
+                   `${balanceForm.type === 'add' ? 'Ajouter' : 'Retirer'} ${balanceForm.amount ? formatAmount(parseFloat(balanceForm.amount)) : '0'} CDF du ${getBalanceLabel(balanceForm.balanceType)}`
+                  )}
+                </button>
+                
+                {!balanceForm.amount && (
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Veuillez saisir un montant
+                  </p>
+                )}
+                
+              {balanceForm.type === 'remove' && 
+ balanceForm.balanceType === 'wallet' && 
+ balanceForm.amount && 
+ parseFloat(balanceForm.amount) > getCurrentBalance(balanceForm.balanceType) && (
+  <p className="text-xs text-red-600 text-center mt-2">
+    Le montant à retirer ne peut pas dépasser le solde disponible
+  </p>
+)}
+              </div>
+            </div>
+          </div>
+        )}
       </Drawer>
     </div>
   );
