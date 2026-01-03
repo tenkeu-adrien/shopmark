@@ -338,13 +338,7 @@ export default function HistoriqueRevenusPage() {
                 <span className="hidden sm:inline">Actualiser</span>
               </button>
               
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Exporter</span>
-              </button>
+        
             </div>
           </div>
         </div>
@@ -567,12 +561,7 @@ export default function HistoriqueRevenusPage() {
                         <p className="text-gray-400 mt-2">
                           Aucun revenu enregistré pour la période sélectionnée
                         </p>
-                        <button
-                          onClick={() => setPeriodeFilter("tout")}
-                          className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          Voir tout l'historique →
-                        </button>
+                     
                       </div>
                     </td>
                   </tr>
@@ -767,15 +756,7 @@ export default function HistoriqueRevenusPage() {
               </div>
             </div>
             
-            <div className="mt-6">
-              <Link 
-                href="/equipe"
-                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-              >
-                <Users className="w-4 h-4" />
-                Voir mes filleuls et augmenter mes revenus →
-              </Link>
-            </div>
+          
           </div>
         </div>
       </div>

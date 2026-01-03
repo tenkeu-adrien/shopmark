@@ -39,7 +39,6 @@ export default function TeamSection() {
       try {
         // 1. Charger le profil utilisateur pour le code d'invitation
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.exists() ? userDoc.data() : {};
         
         const invitationCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
         const invitationLink = `${url}/invite/${invitationCode}`;
@@ -74,6 +73,7 @@ export default function TeamSection() {
           levels
         });
 
+        console.log("Données de l'équipe chargées avec succès" , teamData);
       } catch (error) {
         console.error('Erreur chargement données équipe:', error);
       } finally {
@@ -312,7 +312,7 @@ export default function TeamSection() {
                 className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all ${
                   copied 
                     ? 'bg-green-500 text-white' 
-                    : 'bg-orange-500 text-white hover:bg-orange-600 active:scale-95'
+                    : ''
                 }`}
               >
                 {copied ? (
@@ -324,7 +324,6 @@ export default function TeamSection() {
                   </>
                 ) : (
                   <>
-                    Tout copier
                   </>
                 )}
               </button>

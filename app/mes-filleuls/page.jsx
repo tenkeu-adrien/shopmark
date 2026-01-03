@@ -11,7 +11,6 @@ import {
   doc,
   getDoc,
   orderBy,
-  limit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -102,6 +101,9 @@ export default function MesFilleulsPage() {
         const walletDoc = await getDoc(doc(db, 'wallets', filleulId));
         const walletData = walletDoc.exists() ? walletDoc.data() : {};
         
+
+        console.log("walletData pour filleulId", filleulId, ":", walletData);
+        console.log("firstInvestment pour filleulId", filleulId, ":", firstInvestment?.data());
         // Récupérer les transactions de parrainage liées à ce filleul
         const commissionsQuery = query(
           collection(db, 'transactions'),
@@ -209,29 +211,7 @@ export default function MesFilleulsPage() {
     loadFilleulsData();
   };
 
-  const handleExport = () => {
-    const csv = [
-      ['Nom', 'Téléphone', 'Email', 'Date inscription', 'Montant investi', 'Niveau', 'Bonus %', 'Bonus gagné', 'Statut'],
-      ...filteredFilleuls.map(f => [
-        f.name,
-        f.phone,
-        f.email,
-        formatDate(f.inscriptionDate),
-        f.montantInvesti,
-        f.niveauInvestissement,
-        `${f.commissionRate}%`,
-        f.bonusGagne,
-        f.status === 'actif' ? 'Actif' : 'Inactif'
-      ])
-    ].map(row => row.join(',')).join('\n');
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mes_filleuls_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
 
   if (authLoading || loading) {
     return (
@@ -274,13 +254,6 @@ export default function MesFilleulsPage() {
                 <span className="hidden sm:inline">Actualiser</span>
               </button>
               
-              <Link 
-                href="/equipe"
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700"
-              >
-                <Award className="w-4 h-4" />
-                <span>Vue d'ensemble</span>
-              </Link>
             </div>
           </div>
         </div>
@@ -354,7 +327,7 @@ export default function MesFilleulsPage() {
               </div>
             </div>
             
-            <div className="flex gap-3">
+            {/* <div className="flex gap-3">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -372,7 +345,7 @@ export default function MesFilleulsPage() {
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Exporter</span>
               </button>
-            </div>
+            </div> */}
           </div>
           
           <div className="mt-4 text-sm text-gray-500">

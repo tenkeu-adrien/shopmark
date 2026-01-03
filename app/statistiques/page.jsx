@@ -89,10 +89,7 @@ export default function StatistiquesPage() {
             <option>6 derniers mois</option>
             <option>Cette année</option>
           </select>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <Download className="w-4 h-4" />
-            Exporter
-          </button>
+         
         </div>
       </div>
 
