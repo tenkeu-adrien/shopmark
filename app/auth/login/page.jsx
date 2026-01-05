@@ -462,7 +462,7 @@ export default function AuthPage() {
         </form>
 
         <div className="pt-8 border-t border-gray-800 text-center">
-          <p className="text-sm text-gray-500">© 2024 SHOPMARK - Tous droits réservés</p>
+          <p className="text-sm text-gray-500">© 2026 SHOPMARK - Tous droits réservés</p>
           <p className="text-xs text-gray-600 mt-2">Accès par invitation uniquement</p>
         </div>
       </div>

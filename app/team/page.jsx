@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 
 export default function TeamSection() {
   const { user } = useAuth();
@@ -253,6 +254,8 @@ export default function TeamSection() {
         
         {/* En-tête avec bouton "Voir mes filleuls" */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+
+          <BackButton />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Mon équipe de parrainage</h1>
             <p className="text-gray-600 mt-1">Gérez votre réseau et suivez vos commissions</p>

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import BackButton from "@/components/BackButton";
 
 export default function ProfilePage() {
   // Données utilisateur (à remplacer par vos données réelles)
@@ -41,7 +42,7 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },
-    { id: 6, icon: Users, label: "Invitations", href: "/invitations" },
+    // { id: 6, icon: Users, label: "Invitations", href: "/invitations" },
   ];
 
   const handleLogout = async () => {
@@ -71,7 +72,11 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
 
       <main className="px-4 py-4 space-y-6">
         {/* Section Informations Utilisateur */}
+
+         <BackButton />
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+
+         
           <div className="flex items-start space-x-4">
             {/* Photo de profil */}
             <div className="relative">

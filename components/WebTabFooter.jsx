@@ -6,7 +6,7 @@ export default function WebTabFooter() {
 const { user } = useAuth();
 
 
- if (!user) {
+ if (!user || user.role == 'admin') {
     return null;
   }
  

@@ -505,12 +505,7 @@ export default function MesFilleulsPage() {
                         <p className="text-gray-400 mt-2">
                           {searchTerm ? 'Aucun résultat pour votre recherche' : 'Vous n\'avez pas encore de filleuls'}
                         </p>
-                        <Link 
-                          href="/equipe" 
-                          className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          ← Retour à l'équipe
-                        </Link>
+                       
                       </div>
                     </td>
                   </tr>

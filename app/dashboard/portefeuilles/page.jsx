@@ -40,6 +40,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
+import BackButton from '@/components/BackButton';
 
 export default function PortefeuillesPage() {
   const [portefeuilles, setPortefeuilles] = useState([]);
@@ -291,6 +292,7 @@ export default function PortefeuillesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
+       <BackButton />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Gestion des Portefeuilles</h1>

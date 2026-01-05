@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import DashboardCard from '@/components/DashboardCard';
+import BackButton from '@/components/BackButton';
 
 export default function RessourcesPage() {
   const [filter, setFilter] = useState('all');
@@ -208,6 +209,8 @@ export default function RessourcesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
+
+       <BackButton />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Ressources</h1>

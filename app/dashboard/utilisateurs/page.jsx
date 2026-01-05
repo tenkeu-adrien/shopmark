@@ -58,6 +58,7 @@ import {
   arrayUnion
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
+import BackButton from '@/components/BackButton';
 
 export default function UtilisateursPage() {
   const [filter, setFilter] = useState('all');
@@ -591,6 +592,8 @@ const handleBalanceUpdate = async () => {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
+
+       <BackButton />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Utilisateurs</h1>
