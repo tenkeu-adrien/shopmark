@@ -13,70 +13,169 @@ import {
   Headphones,
   Users,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Loader2 // Ajouté pour l'indicateur de chargement
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import { useState, useEffect } from "react"; // Ajouté
+import { db } from "@/lib/firebase"; // Ajouté
+import { doc, getDoc } from "firebase/firestore"; // Ajouté
 
 export default function ProfilePage() {
-  // Données utilisateur (à remplacer par vos données réelles)
-  const user = {
-    name: "John Doe",
-    phone: "+243 81 234 5678",
-    totalWithdrawal: "0.0",
-    status: "VIP",
-    walletBalance: "0.0",
-    actionBalance: "0.0"
-  };
-
   const { user: authUser, logout } = useAuth();
   const router = useRouter();
-// console.log("user dans ProfilePage.jsx:", user);
-//   console.log("User from AuthContext:", authUser);
-const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT';
+  
+  // États pour les données Firebase
+  const [walletData, setWalletData] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Charger les données depuis Firebase
+  useEffect(() => {
+    if (!authUser?.uid) return;
+    
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // 1. Charger les données utilisateur
+        const userDocRef = doc(db, 'users', authUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setUserData({
+            id: userDocSnap.id,
+            ...userData,
+            // Données par défaut si non présentes
+            phone: userData.phone || authUser.phone || 'Non spécifié',
+            fullName: userData.fullName || userData.displayName || authUser.displayName || 'Utilisateur',
+            status: userData.status || 'active',
+            totalWithdrawal: userData.totalWithdrawn || 0
+          });
+        }
+        
+        // 2. Charger le wallet
+        const walletDocRef = doc(db, 'wallets', authUser.uid);
+        const walletDocSnap = await getDoc(walletDocRef);
+        
+        if (walletDocSnap.exists()) {
+          const walletData = walletDocSnap.data();
+          setWalletData({
+            id: walletDocSnap.id,
+            ...walletData,
+            balances: {
+              wallet: walletData.balances?.wallet || { amount: 0, currency: 'CDF' },
+              action: walletData.balances?.action || { amount: 0, currency: 'CDF' },
+              totalDeposited: walletData.balances?.totalDeposited || { amount: 0, currency: 'CDF' }
+            },
+            stats: walletData.stats || {
+              totalDeposited: 0,
+              totalWithdrawn: 0,
+              totalInvested: 0,
+              totalEarned: 0,
+              referralEarnings: 0
+            }
+          });
+        } else {
+          // Si pas de wallet, utiliser des valeurs par défaut
+          setWalletData({
+            balances: {
+              wallet: { amount: 0, currency: 'CDF' },
+              action: { amount: 0, currency: 'CDF' },
+              totalDeposited: { amount: 0, currency: 'CDF' }
+            },
+            stats: {
+              totalDeposited: 0,
+              totalWithdrawn: 0,
+              totalInvested: 0,
+              totalEarned: 0,
+              referralEarnings: 0
+            }
+          });
+        }
+        
+      } catch (error) {
+        console.error('Erreur chargement données profil:', error);
+        setError('Impossible de charger les données du profil');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [authUser?.uid]);
+  
+  // Données utilisateur (avec fallback si chargement en cours)
+  const user = {
+    name: userData?.fullName || "Chargement...",
+    phone: userData?.phone || authUser?.phone || "Chargement...",
+    totalWithdrawal: walletData?.stats?.totalWithdrawn || "0.0",
+    status: userData?.status === 'VIP' ? "VIP" : "Standard",
+    walletBalance: walletData?.balances?.wallet?.amount || "0.0",
+    actionBalance: walletData?.balances?.action?.amount || "0.0"
+  };
+
   // Options du menu
-  console.log("inviteCode:", inviteCode);
   const menuOptions = [
     { id: 1, icon: Wallet, label: "Historique des revenus", href: "/revenue-history" },
+    { id: 2, icon: TrendingUp, label: "Niveaux d'investissement", href: "/dashboard" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },
-    // { id: 6, icon: Users, label: "Invitations", href: "/invitations" },
   ];
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push(`/auth/login`); // Rediriger vers la page de connexion
+      router.push(`/auth/login`);
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
     }
   };
 
+  const formatAmount = (amount) => {
+    if (amount === null || amount === undefined) return '0';
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
 
-
+  // Afficher l'indicateur de chargement
+  if (loading && !walletData && !userData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-amber-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Chargement du profil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-4">
-        {/* <div className="flex items-center justify-between">
-          <Link href="/" className="text-gray-600">
-            ←
-          </Link>
-          <h1 className="text-lg font-semibold text-gray-800">Profil</h1>
-          <div className="w-6"></div>
-        </div> */}
+        {/* Votre header existant */}
       </header>
 
       <main className="px-4 py-4 space-y-6">
         {/* Section Informations Utilisateur */}
-
-         <BackButton />
+        <BackButton />
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
+        
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-
-         
           <div className="flex items-start space-x-4">
             {/* Photo de profil */}
             <div className="relative">
@@ -97,10 +196,10 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
               <div className="mb-2">
                 <div className="flex items-center text-gray-600 mb-1">
                   <Phone className="w-4 h-4 mr-2" />
-                  <span className="font-medium">{authUser?.phone || user.phone}</span>
+                  <span className="font-medium">{user.phone}</span>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Retrait total commandé : <span className="font-bold text-amber-600"> CDF {user.totalWithdrawal}</span>
+                  Retrait total commandé : <span className="font-bold text-amber-600"> CDF {formatAmount(user.totalWithdrawal)}</span>
                 </p>
               </div>
               
@@ -121,8 +220,8 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-center mb-3">
                 <Wallet className="w-6 h-6 text-amber-600" />
               </div>
-              <h3 className="text-sm font-medium text-gray-600 ">Recharge portefeuille</h3>
-              <p className="text-xl font-bold text-amber-600">{user.walletBalance} CDF</p>
+              <h3 className="text-sm font-medium text-gray-600">Solde disponible</h3>
+              <p className="text-xl font-bold text-amber-600">{formatAmount(user.walletBalance)} CDF</p>
             </div>
           </div>
 
@@ -132,8 +231,8 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 flex items-center justify-center mb-3">
                 <TrendingUp className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-sm font-medium text-gray-600 ">Solde en action</h3>
-              <p className="text-xl font-bold text-blue-600">{user.actionBalance} CDF</p>
+              <h3 className="text-sm font-medium text-gray-600">Solde investi</h3>
+              <p className="text-xl font-bold text-blue-600">{formatAmount(user.actionBalance)} CDF</p>
             </div>
           </div>
         </div>
@@ -169,7 +268,7 @@ const inviteCode = user?.uid ? user.uid.substring(0, 8).toUpperCase() : 'DEFAULT
               );
             })}
             
-            {/* Option Déconnexion avec gestionnaire onClick */}
+            {/* Option Déconnexion */}
             <button
               onClick={handleLogout}
               className="flex items-center justify-between w-full px-6 py-4 transition-colors duration-200 hover:bg-red-50 text-left"
