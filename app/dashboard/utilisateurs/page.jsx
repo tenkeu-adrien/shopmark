@@ -357,7 +357,7 @@ const handleBalanceUpdate = async () => {
       notes: balanceForm.notes,
       adminId: currentUser.uid,
       adminName: adminName,
-      timestamp: serverTimestamp(),
+      timestamp: Date.now(),
       date: new Date().toISOString()
     };
 
@@ -713,7 +713,7 @@ const handleBalanceUpdate = async () => {
       </DashboardCard>
 
       {/* Table des utilisateurs */}
-      <DashboardCard>
+      <DashboardCard className='mb-35'>
         <div className="overflow-x-auto -mx-2 sm:mx-0">
           <div className="min-w-full inline-block align-middle">
             <div className="overflow-hidden">
@@ -1173,8 +1173,8 @@ const handleBalanceUpdate = async () => {
         title={`Modifier le solde de ${selectedUser?.displayName || selectedUser?.email || selectedUser?.phone}`}
         size="md"
       >
-        {selectedUser && userWallet && (
-          <div className="space-y-4 sm:space-y-6">
+        {selectedUser && userWallet && ( 
+          <div className="space-y-4 sm:space-y-6 mb-20">
             {/* Informations sur le solde actuel */}
           <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">

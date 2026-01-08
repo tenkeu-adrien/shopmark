@@ -162,9 +162,9 @@ const router = useRouter();
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Rejoignez les grandes entreprises qui nous font confiance pour leurs stratégies marketing.
           </p>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition duration-300 transform hover:scale-105">
+          <a href="https://wa.me/447412830186" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition duration-300 transform hover:scale-105">
             Contactez-nous
-          </button>
+          </a>
         </div>
 
         {/* Section Image */}

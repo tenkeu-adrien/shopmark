@@ -54,6 +54,9 @@ export default function CriteoWelcomePage() {
 const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
    const inviteLinkCode = `${url}/invite/${inviteCode}`;
   // Vérification d'authentification
+
+
+  console.log("wallet:", wallet);
 useEffect(() => {
   if (!authLoading && !user) {
     router.push(`/invite/${inviteCode}`);

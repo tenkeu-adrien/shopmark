@@ -322,7 +322,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions et Graphique */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        <DashboardCard title="Actions rapides">
+        <DashboardCard title="Actions rapides" className='mb-10'>
           <div className="space-y-2 sm:space-y-3">
             <Link 
               href="/dashboard/transactions?status=pending"
@@ -359,7 +359,7 @@ export default function DashboardPage() {
         </DashboardCard>
 
         <div className="md:col-span-2">
-          <DashboardCard title="Aperçu mensuel">
+          <DashboardCard title="Aperçu mensuel"   className='mb-30'>
             <div className="h-40 sm:h-48 md:h-56 lg:h-64 flex items-end justify-between px-2 sm:px-4">
               {Array.from({ length: 30 }).map((_, index) => {
                 const day = index + 1;

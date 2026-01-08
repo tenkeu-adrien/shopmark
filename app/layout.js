@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import WebTabFooter from "@/components/WebTabFooter";
 import { AuthProvider } from '@/contexts/AuthContext'
+import ProgressBar from "@/components/ProgressBar";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({ children }) {
 
         <WebTabFooter />
         </AuthProvider>
+        <ProgressBar />
       </body>
     </html>
   );

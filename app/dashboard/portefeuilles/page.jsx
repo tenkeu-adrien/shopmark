@@ -376,8 +376,8 @@ export default function PortefeuillesPage() {
       </DashboardCard>
 
       {/* Table des portefeuilles */}
-      <DashboardCard>
-        <div className="overflow-x-auto -mx-2 sm:mx-0">
+      <DashboardCard className='mb-40'>
+        <div className="overflow-x-auto -mx-2 sm:mx-0 ">
           <div className="min-w-full inline-block align-middle">
             <div className="overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
