@@ -123,7 +123,7 @@ export default function ProfilePage() {
   // Options du menu
   const menuOptions = [
     { id: 1, icon: Wallet, label: "Historique des revenus", href: "/revenue-history" },
-    { id: 2, icon: TrendingUp, label: "Niveaux d'investissement", href: "/dashboard" },
+    // { id: 2, icon: TrendingUp, label: "Niveaux d'investissement", href: "/dashboard" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/download-app" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },
