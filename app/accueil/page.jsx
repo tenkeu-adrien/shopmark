@@ -50,20 +50,18 @@ export default function CriteoWelcomePage() {
   const [userProfile, setUserProfile] = useState(null);
   const [teamStats, setTeamStats] = useState(null);
   const router = useRouter();
-    const url = "https://shopmark.fr";
-const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
-   const inviteLinkCode = `${url}/invite/${inviteCode}`;
+  const url = "https://shopmark.fr";
+  const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
+  const inviteLinkCode = `${url}/invite/${inviteCode}`;
+
   // Vérification d'authentification
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push(`/invite/${inviteCode}`);
+    }
+  }, [user]);
 
-
-  console.log("wallet:", wallet);
-useEffect(() => {
-  if (!authLoading && !user) {
-    router.push(`/invite/${inviteCode}`);
-  }
-}, [user]);
-
-  // Charger les données utilisateur avec la nouvelle logique
+  // Charger les données utilisateur
   useEffect(() => {
     if (!user?.uid) {
       setLoading(false);
@@ -101,8 +99,7 @@ useEffect(() => {
         // 3. Charger les niveaux de l'utilisateur
         const userLevelsQuery = query(
           collection(db, 'user_levels'),
-          where('userId', '==', user.uid),
-          // orderBy('startDate', 'desc') 
+          where('userId', '==', user.uid)
         );
         
         const userLevelsSnapshot = await getDocs(userLevelsQuery);
@@ -179,7 +176,6 @@ useEffect(() => {
         userId,
         userEmail: user?.email || '',
         userPhone: user?.phone || '',
-        // SOLDE CORRIGÉ : Total des dépôts = wallet + action
         balances: {
           wallet: { // Solde disponible pour investir/retirer
             amount: 0,
@@ -191,18 +187,18 @@ useEffect(() => {
             currency: 'CDF',
             lastUpdated: now
           },
-          totalDeposited: { // Total historique des dépôts (NE CHANGE PAS)
+          totalDeposited: { // Total historique des dépôts
             amount: 0,
             currency: 'CDF',
             lastUpdated: now
           }
         },
         stats: {
-          totalDeposited: 0, // Somme de tous les dépôts
+          totalDeposited: 0,
           totalWithdrawn: 0,
-          totalInvested: 0, // Somme de tous les investissements
-          totalEarned: 0,   // Gains totaux des niveaux
-          referralEarnings: 0, // Gains de parrainage
+          totalInvested: 0,
+          totalEarned: 0,
+          referralEarnings: 0,
           lastDepositAt: null,
           lastWithdrawalAt: null,
           lastInvestmentAt: null
@@ -268,7 +264,7 @@ useEffect(() => {
     }
   };
 
-  // NOUVELLE FONCTION : Vérifier l'éligibilité au changement de niveau
+  // Vérifier l'éligibilité au changement de niveau (progression irréversible)
   const canSwitchToLevel = useCallback((targetLevel) => {
     if (!userLevels || userLevels.length === 0) return true; // Premier investissement
     
@@ -284,271 +280,314 @@ useEffect(() => {
     return targetLevelOrder > currentLevel.order;
   }, [userLevels, levels]);
 
-  // NOUVELLE LOGIQUE : Gestion des participations avec cohérence financière
-  const handleParticipate = async (level) => {
-    if (!user || !wallet) {
-      setError('Veuillez vous connecter pour participer');
-      return;
-    }
+  // NOUVELLE LOGIQUE : Calculer la somme totale disponible (solde disponible + solde investi)
+  const getTotalAvailableBalance = useCallback(() => {
+    if (!wallet) return 0;
+    const availableBalance = wallet.balances?.wallet?.amount || 0;
+    const investedBalance = wallet.balances?.action?.amount || 0;
+    return availableBalance + investedBalance;
+  }, [wallet]);
 
-    // Vérifier si déjà actif dans ce niveau
+  // LOGIQUE CORRIGÉE : Vérifier si l'utilisateur peut participer à un niveau
+  const canParticipate = useCallback((level) => {
+    if (!wallet || !user) return false;
+    
+    // 1. Vérifier si déjà actif dans ce niveau
     const isAlreadyActive = userLevels.some(
       ul => ul.levelId === level.levelId && ul.status === 'active'
     );
+    if (isAlreadyActive) return false;
     
-    if (isAlreadyActive) {
-      setError('Vous participez déjà à ce niveau');
-      return;
-    }
-
-    // Vérifier la progression irréversible
-    if (!canSwitchToLevel(level)) {
-      setError('Vous ne pouvez pas revenir à un niveau inférieur. La progression est irréversible.');
-      return;
-    }
-
-    // Vérifier le solde disponible
-    const walletBalance = wallet.balances?.wallet?.amount || 0;
+    // 2. Vérifier progression irréversible
+    if (!canSwitchToLevel(level)) return false;
     
-    if (walletBalance < level.requiredAmount) {
-      setError(`Fonds insuffisants. Solde disponible: ${formatAmount(walletBalance)} CDF. Montant requis: ${formatAmount(level.requiredAmount)} CDF`);
-      return;
-    }
+    // 3. Vérifier si la somme totale (disponible + investi) >= montant requis
+    const totalAvailable = getTotalAvailableBalance();
+    return totalAvailable >= level.requiredAmount;
+  }, [wallet, user, userLevels, canSwitchToLevel, getTotalAvailableBalance]);
 
-    setParticipating(prev => ({ ...prev, [level.levelId]: true }));
-    setError(null);
-    setSuccess(null);
+  // LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
+ // LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
+const handleParticipate = async (level) => {
+  if (!user || !wallet) {
+    setError('Veuillez vous connecter pour participer');
+    return;
+  }
 
-    try {
-      const batch = writeBatch(db);
-      const now = new Date();
+  // 1. Vérifier si déjà actif dans ce niveau
+  const isAlreadyActive = userLevels.some(
+    ul => ul.levelId === level.levelId && ul.status === 'active'
+  );
+  if (isAlreadyActive) {
+    setError('Vous participez déjà à ce niveau');
+    return;
+  }
 
-      // RÉCUPÉRER LE NIVEAU ACTIF EXISTANT
-      const currentActive = userLevels.find(ul => ul.status === 'active');
-      
-      // LOGIQUE DE TRANSITION
-      if (currentActive) {
-        // 1. Désactiver l'ancien niveau
-        const oldUserLevelRef = doc(db, 'user_levels', currentActive.id);
-        batch.update(oldUserLevelRef, {
-          status: 'completed',
-          endedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          endReason: 'upgraded'
-        });
+  // 2. Vérifier la progression irréversible
+  if (!canSwitchToLevel(level)) {
+    setError('Vous ne pouvez pas revenir à un niveau inférieur. La progression est irréversible.');
+    return;
+  }
 
-        // 2. Ajouter les gains restants au portefeuille
-        // Calculer les gains non versés (si besoin)
-        // Pour l'instant, on garde la logique simple
-      }
+  // 3. Vérifier le solde total disponible
+  const totalAvailable = getTotalAvailableBalance();
+  if (totalAvailable < level.requiredAmount) {
+    setError(`Fonds insuffisants. Solde total disponible: ${formatAmount(totalAvailable)} CDF. Montant requis: ${formatAmount(level.requiredAmount)} CDF`);
+    return;
+  }
 
-      // 3. DÉBITER LE PORTEFEUILLE
-      const walletRef = doc(db, 'wallets', user.uid);
-      batch.update(walletRef, {
-        'balances.wallet.amount': increment(-level.requiredAmount),
-        'balances.wallet.lastUpdated': serverTimestamp(),
-        'balances.action.amount': increment(level.requiredAmount),
-        'balances.action.lastUpdated': serverTimestamp(),
-        'stats.totalInvested': increment(level.requiredAmount),
-        'stats.lastInvestmentAt': serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        version: increment(1)
-      });
+  setParticipating(prev => ({ ...prev, [level.levelId]: true }));
+  setError(null);
+  setSuccess(null);
 
-      // 4. CRÉER LA TRANSACTION
-      const transactionRef = doc(collection(db, 'transactions'));
-      batch.set(transactionRef, {
-        transactionId: `INV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId: user.uid,
-        userEmail: user.email,
-        type: 'investment',
-        amount: level.requiredAmount,
-        currency: 'CDF',
+  try {
+    const batch = writeBatch(db);
+    const now = new Date();
+
+    // RÉCUPÉRER LE NIVEAU ACTIF EXISTANT
+    const currentActive = userLevels.find(ul => ul.status === 'active');
+    
+    // LOGIQUE DE TRANSITION
+    if (currentActive) {
+      // 1. Désactiver l'ancien niveau
+      const oldUserLevelRef = doc(db, 'user_levels', currentActive.id);
+      batch.update(oldUserLevelRef, {
         status: 'completed',
-        description: `Investissement - Niveau ${level.name}`,
-        metadata: {
-          levelId: level.levelId,
-          levelName: level.name,
-          previousLevel: currentActive?.levelName || null,
-          isUpgrade: !!currentActive
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        endedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        endReason: 'upgraded'
       });
+    }
 
-      // 5. CRÉER LE NOUVEAU USER_LEVEL
-      const userLevelRef = doc(collection(db, 'user_levels'));
-      const endDate = new Date(now);
-      endDate.setDate(now.getDate() + level.durationDays);
-      
-      const nextPayoutAt = new Date(now);
-      nextPayoutAt.setDate(now.getDate() + 1);
-      nextPayoutAt.setHours(0, 0, 0, 0);
+    // 2. CALCULER LE TRANSFERT FINANCIER (LOGIQUE CORRIGÉE)
+    const walletRef = doc(db, 'wallets', user.uid);
+    const currentAvailableBalance = wallet.balances?.wallet?.amount || 0;
+    const currentInvestedBalance = wallet.balances?.action?.amount || 0;
+    
+    // Montant requis du nouveau niveau
+    const amountToInvest = level.requiredAmount;
+    
+    // NOUVELLE LOGIQUE : Calculer uniquement le complément nécessaire depuis le solde disponible
+    const neededFromWallet = amountToInvest - currentInvestedBalance;
+    
+    // Vérifier que le solde disponible est suffisant pour le complément
+    if (currentAvailableBalance < neededFromWallet) {
+      throw new Error(`Solde disponible insuffisant. Besoin de ${formatAmount(neededFromWallet)} CDF depuis votre solde disponible (${formatAmount(currentAvailableBalance)} CDF)`);
+    }
+    
+    // Montant à déduire du solde disponible (uniquement le complément)
+    const amountToDeductFromWallet = neededFromWallet;
+    
+    // Montant à ajouter au solde investi (le complément uniquement)
+    // Le solde investi existant reste intact
+    const amountToAddToInvestment = neededFromWallet;
 
-      batch.set(userLevelRef, {
-        userLevelId: userLevelRef.id,
-        userId: user.uid,
-        userEmail: user.email,
+    // 3. APPLIQUER LES TRANSFERTS DE FONDS
+    batch.update(walletRef, {
+      'balances.wallet.amount': increment(-amountToDeductFromWallet),
+      'balances.wallet.lastUpdated': serverTimestamp(),
+      'balances.action.amount': increment(amountToAddToInvestment),
+      'balances.action.lastUpdated': serverTimestamp(),
+      'stats.totalInvested': increment(amountToInvest),
+      'stats.lastInvestmentAt': serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      version: increment(1)
+    });
+
+    // 4. CRÉER LA TRANSACTION D'INVESTISSEMENT
+    const transactionRef = doc(collection(db, 'transactions'));
+    batch.set(transactionRef, {
+      transactionId: `INV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: user.uid,
+      userEmail: user.email,
+      type: 'investment',
+      amount: amountToInvest,
+      currency: 'CDF',
+      status: 'completed',
+      description: `Investissement - Niveau ${level.name}`,
+      metadata: {
         levelId: level.levelId,
         levelName: level.name,
-        levelOrder: level.order,
-        investedAmount: level.requiredAmount,
-        dailyReturnRate: level.dailyReturnRate,
-        dailyGain: level.dailyGain,
-        startDate: serverTimestamp(),
-        scheduledEndDate: Timestamp.fromDate(endDate),
-        durationDays: level.durationDays,
-        totalEarned: 0,
-        status: 'active',
-        previousLevelId: currentActive?.levelId || null,
-        isFirstInvestment: !currentActive,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      // 6. METTRE À JOUR LE PROFIL UTILISATEUR
-      const userRef = doc(db, 'users', user.uid);
-      batch.update(userRef, {
-        currentLevel: level.levelId,
-        currentLevelName: level.name,
-        lastInvestmentAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      // 7. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE
-        await triggerReferralCommissions(
-  user.uid, 
-  level.requiredAmount, 
-  batch, 
-  !currentActive // Passer un paramètre pour indiquer si c'est le premier investissement
-);
-      
-
-      // EXÉCUTER LA BATCH
-      await batch.commit();
-
-      setSuccess(currentActive 
-        ? `✅ Niveau mis à jour ! Vous êtes maintenant au niveau ${level.name}`
-        : `✅ Investissement réussi ! Bienvenue au niveau ${level.name}`
-      );
-
-      // Recharger après succès
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
-    } catch (error) {
-      console.error('Erreur investissement:', error);
-      setError('Erreur lors de l\'opération. Veuillez réessayer.');
-    } finally {
-      setParticipating(prev => ({ ...prev, [level.levelId]: false }));
-    }
-  };
-
-  // Déclencher les commissions de parrainage
-// REMPLACEZ les lignes 279-342 par :
-// MODIFIEZ la fonction triggerReferralCommissions :
-const triggerReferralCommissions = async (userId, amount, batch, isFirstInvestment = true) => {
-  console.log('Déclenchement commissions pour:', userId, 'montant:', amount, 'premier investissement?:', isFirstInvestment);
-  
-  try {
-    // Récupérer l'utilisateur AVANT le batch
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (!userSnap.exists()) {
-      console.log('Utilisateur non trouvé:', userId);
-      return;
-    }
-    
-    const userData = userSnap.data();
-    const referrerId = userData.referrerId;
-    
-    console.log('ReferrerId trouvé:', referrerId);
-    
-    if (!referrerId) {
-      console.log('Pas de parrain pour cet utilisateur');
-      return;
-    }
-
-    // 1. CRÉER UNE LISTE DE TOUS LES PARRAINS (3 niveaux max)
-    const referrerChain = [];
-    let currentReferrerId = referrerId;
-    
-    for (let i = 0; i < 3; i++) {
-      if (!currentReferrerId) break;
-      
-      // Récupérer chaque parrain AVANT le batch
-      const referrerSnap = await getDoc(doc(db, 'users', currentReferrerId));
-      if (!referrerSnap.exists()) break;
-      
-      const referrerData = referrerSnap.data();
-      referrerChain.push({
-        id: currentReferrerId,
-        phone: referrerData.phone,
-        email: referrerData.email
-      });
-      
-      // Passer au parrain suivant (pour niveau 2 et 3)
-      currentReferrerId = referrerData.referrerId;
-    }
-
-    console.log('Chaîne de parrainage trouvée:', referrerChain.length, 'niveaux');
-
-    // 2. APPLIQUER LES COMMISSIONS DANS LE BATCH
-    const commissionRates = [0.03, 0.02, 0.01]; // 3%, 2%, 1%
-    
-    referrerChain.forEach((referrer, index) => {
-      if (index >= 3) return; // Sécurité : jamais plus de 3 niveaux
-      
-      const commission = amount * commissionRates[index];
-      console.log(`Commission niveau ${index+1}: ${commission} CDF pour ${referrer.id}`);
-      
-      // Mettre à jour le wallet du parrain
-      const referrerWalletRef = doc(db, 'wallets', referrer.id);
-      batch.update(referrerWalletRef, {
-        'balances.wallet.amount': increment(commission),
-        'balances.wallet.lastUpdated': serverTimestamp(),
-        'stats.referralEarnings': increment(commission),
-        'stats.totalEarned': increment(commission),
-        updatedAt: serverTimestamp(),
-        version: increment(1)
-      });
-
-      // Créer la transaction de commission
-      const commissionRef = doc(collection(db, 'transactions'));
-      batch.set(commissionRef, {
-        transactionId: `COM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
-        userId: referrer.id,
-        userPhone: referrer.phone,
-        userEmail: referrer.email,
-        type: 'referral_commission',
-        amount: commission,
-        currency: 'CDF',
-        status: 'completed',
-        description: `Commission parrainage ${isFirstInvestment ? 'premier investissement' : 'réinvestissement'} niveau ${index + 1}`,
-        metadata: {
-          referredUserId: userId,
-          referredUserPhone: userData.phone,
-          referredUserEmail: userData.email,
-          commissionLevel: index + 1,
-          investmentAmount: amount,
-          commissionRate: commissionRates[index],
-          chainIndex: index,
-          isFirstInvestment: isFirstInvestment, // ← Indiquer si c'est le premier investissement
-          timestamp: serverTimestamp()
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+        previousLevel: currentActive?.levelName || null,
+        isUpgrade: !!currentActive,
+        previousInvestedBalance: currentInvestedBalance,
+        newInvestedAmount: amountToInvest,
+        walletDeduction: amountToDeductFromWallet,
+        walletBalanceAfter: currentAvailableBalance - amountToDeductFromWallet,
+        investmentAdded: amountToAddToInvestment,
+        note: 'Nouvelle logique: uniquement complément depuis solde disponible'
+      },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
+
+    // 5. CRÉER LE NOUVEAU USER_LEVEL
+    const userLevelRef = doc(collection(db, 'user_levels'));
+    const endDate = new Date(now);
+    endDate.setDate(now.getDate() + level.durationDays);
     
-    console.log('✅ Commissions préparées pour', referrerChain.length, 'niveaux');
-    
+    const nextPayoutAt = new Date(now);
+    nextPayoutAt.setDate(now.getDate() + 1);
+    nextPayoutAt.setHours(0, 0, 0, 0);
+
+    batch.set(userLevelRef, {
+      userLevelId: userLevelRef.id,
+      userId: user.uid,
+      userEmail: user.email,
+      levelId: level.levelId,
+      levelName: level.name,
+      levelOrder: level.order,
+      investedAmount: amountToInvest,
+      dailyReturnRate: level.dailyReturnRate,
+      dailyGain: level.dailyGain,
+      startDate: serverTimestamp(),
+      scheduledEndDate: Timestamp.fromDate(endDate),
+      durationDays: level.durationDays,
+      totalEarned: 0,
+      status: 'active',
+      previousLevelId: currentActive?.levelId || null,
+      isFirstInvestment: !currentActive,
+      previousInvestedBalance: currentInvestedBalance,
+      walletContribution: amountToDeductFromWallet,
+      previousInvestmentKept: currentInvestedBalance,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    // 6. METTRE À JOUR LE PROFIL UTILISATEUR
+    const userRef = doc(db, 'users', user.uid);
+    batch.update(userRef, {
+      currentLevel: level.levelId,
+      currentLevelName: level.name,
+      lastInvestmentAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    // 7. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (seulement pour premier investissement)
+    if (!currentActive) {
+      await triggerReferralCommissions(user.uid, amountToInvest, batch);
+    }
+
+    // EXÉCUTER LA BATCH
+    await batch.commit();
+
+    setSuccess(currentActive 
+      ? `✅ Niveau mis à jour ! Investissement de ${formatAmount(amountToInvest)} CDF réussi.`
+      : `✅ Investissement réussi ! Bienvenue au niveau ${level.name}`
+    );
+
+    // Recharger après succès
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+
   } catch (error) {
-    console.error('❌ Erreur détaillée commissions parrainage:', error);
+    console.error('Erreur investissement:', error);
+    setError(error.message || 'Erreur lors de l\'opération. Veuillez réessayer.');
+  } finally {
+    setParticipating(prev => ({ ...prev, [level.levelId]: false }));
   }
 };
+
+  // Déclencher les commissions de parrainage
+  const triggerReferralCommissions = async (userId, amount, batch) => {
+    console.log('Déclenchement commissions pour:', userId, 'montant:', amount);
+    
+    try {
+      // Récupérer l'utilisateur AVANT le batch
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        console.log('Utilisateur non trouvé:', userId);
+        return;
+      }
+      
+      const userData = userSnap.data();
+      const referrerId = userData.referrerId;
+      
+      console.log('ReferrerId trouvé:', referrerId);
+      
+      if (!referrerId) {
+        console.log('Pas de parrain pour cet utilisateur');
+        return;
+      }
+
+      // 1. CRÉER UNE LISTE DE TOUS LES PARRAINS (3 niveaux max)
+      const referrerChain = [];
+      let currentReferrerId = referrerId;
+      
+      for (let i = 0; i < 3; i++) {
+        if (!currentReferrerId) break;
+        
+        // Récupérer chaque parrain AVANT le batch
+        const referrerSnap = await getDoc(doc(db, 'users', currentReferrerId));
+        if (!referrerSnap.exists()) break;
+        
+        const referrerData = referrerSnap.data();
+        referrerChain.push({
+          id: currentReferrerId,
+          phone: referrerData.phone,
+          email: referrerData.email
+        });
+        
+        // Passer au parrain suivant (pour niveau 2 et 3)
+        currentReferrerId = referrerData.referrerId;
+      }
+
+      console.log('Chaîne de parrainage trouvée:', referrerChain.length, 'niveaux');
+
+      // 2. APPLIQUER LES COMMISSIONS DANS LE BATCH
+      const commissionRates = [0.03, 0.02, 0.01]; // 3%, 2%, 1%
+      
+      referrerChain.forEach((referrer, index) => {
+        if (index >= 3) return; // Sécurité : jamais plus de 3 niveaux
+        
+        const commission = amount * commissionRates[index];
+        console.log(`Commission niveau ${index+1}: ${commission} CDF pour ${referrer.id}`);
+        
+        // Mettre à jour le wallet du parrain
+        const referrerWalletRef = doc(db, 'wallets', referrer.id);
+        batch.update(referrerWalletRef, {
+          'balances.wallet.amount': increment(commission),
+          'balances.wallet.lastUpdated': serverTimestamp(),
+          'stats.referralEarnings': increment(commission),
+          'stats.totalEarned': increment(commission),
+          updatedAt: serverTimestamp(),
+          version: increment(1)
+        });
+
+        // Créer la transaction de commission
+        const commissionRef = doc(collection(db, 'transactions'));
+        batch.set(commissionRef, {
+          transactionId: `COM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
+          userId: referrer.id,
+          userPhone: referrer.phone,
+          userEmail: referrer.email,
+          type: 'referral_commission',
+          amount: commission,
+          currency: 'CDF',
+          status: 'completed',
+          description: `Commission parrainage niveau ${index + 1}`,
+          metadata: {
+            referredUserId: userId,
+            referredUserPhone: userData.phone,
+            commissionLevel: index + 1,
+            investmentAmount: amount,
+            commissionRate: commissionRates[index],
+            chainIndex: index
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      console.log('✅ Commissions préparées pour', referrerChain.length, 'niveaux');
+      
+    } catch (error) {
+      console.error('❌ Erreur détaillée commissions parrainage:', error);
+    }
+  };
 
   // Formater les montants
   const formatAmount = (amount) => {
@@ -556,47 +595,16 @@ const triggerReferralCommissions = async (userId, amount, batch, isFirstInvestme
     return new Intl.NumberFormat('fr-FR').format(Math.round(amount));
   };
 
- // Remplacer la fonction actuelle par :
-const canParticipate = (level) => {
-  if (!wallet || !user) return false;
-  
-  // Vérifier si déjà actif
-  const isAlreadyActive = userLevels.some(
-    ul => ul.levelId === level.levelId && ul.status === 'active'
-  );
-  
-  if (isAlreadyActive) return false;
-  
-  // Vérifier progression irréversible
-  if (!canSwitchToLevel(level)) return false;
-  
-  // Récupérer le niveau actif (si existe)
-  const currentActive = userLevels.find(ul => ul.status === 'active');
-  
-  if (currentActive) {
-    // LOGIQUE MODIFIÉE : Pour un upgrade
-    const currentInvestment = currentActive.investedAmount || 0;
-    const walletBalance = wallet.balances?.wallet?.amount || 0;
-    const totalAvailable = currentInvestment + walletBalance;
-    
-    return totalAvailable >= level.requiredAmount;
-  } else {
-    // Premier investissement : logique normale
-    const walletBalance = wallet.balances?.wallet?.amount || 0;
-    return walletBalance >= level.requiredAmount;
-  }
-};
-
-  // Calculer le revenu mensuel
-  const calculateMonthlyIncome = (dailyGain) => {
-    return dailyGain * 30;
-  };
-
   // Vérifier participation active
   const isParticipating = (levelId) => {
     return userLevels.some(
       ul => ul.levelId === levelId && ul.status === 'active'
     );
+  };
+
+  // Calculer le revenu mensuel
+  const calculateMonthlyIncome = (dailyGain) => {
+    return dailyGain * 30;
   };
 
   // Obtenir le code d'invitation
@@ -699,7 +707,7 @@ const canParticipate = (level) => {
           </a>
         </motion.div>
 
-        {/* Soldes avec nouvelle logique */}
+        {/* Soldes */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -725,8 +733,6 @@ const canParticipate = (level) => {
             <span className="font-medium text-sm text-gray-600">Solde investi</span>
             <p className="text-xs text-gray-500 mt-1">Actuellement en action</p>
           </div>
-
-       
         </motion.div>
 
         {/* Code d'invitation et stats équipe */}
@@ -762,9 +768,6 @@ const canParticipate = (level) => {
               Copier le lien d'invitation
             </button>
           </div>
-
-    
-        
         </motion.div>
 
         {/* Section niveaux */}
@@ -932,9 +935,6 @@ const canParticipate = (level) => {
           })}
         </motion.div>
 
-        {/* Section équipe */}
-        {/* <TeamSection /> */}
-        
         <WhatsAppButtonSimple />
         <TelegramAppButtone />
         <WebTabFooter />
