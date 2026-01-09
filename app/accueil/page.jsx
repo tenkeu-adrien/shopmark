@@ -416,9 +416,13 @@ useEffect(() => {
       });
 
       // 7. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE
-      if (!currentActive) { // Premier investissement
-        await triggerReferralCommissions(user.uid, level.requiredAmount, batch);
-      }
+        await triggerReferralCommissions(
+  user.uid, 
+  level.requiredAmount, 
+  batch, 
+  !currentActive // Passer un paramètre pour indiquer si c'est le premier investissement
+);
+      
 
       // EXÉCUTER LA BATCH
       await batch.commit();
@@ -443,8 +447,9 @@ useEffect(() => {
 
   // Déclencher les commissions de parrainage
 // REMPLACEZ les lignes 279-342 par :
-const triggerReferralCommissions = async (userId, amount, batch) => {
-  console.log('Déclenchement commissions pour:', userId, 'montant:', amount);
+// MODIFIEZ la fonction triggerReferralCommissions :
+const triggerReferralCommissions = async (userId, amount, batch, isFirstInvestment = true) => {
+  console.log('Déclenchement commissions pour:', userId, 'montant:', amount, 'premier investissement?:', isFirstInvestment);
   
   try {
     // Récupérer l'utilisateur AVANT le batch
@@ -521,14 +526,17 @@ const triggerReferralCommissions = async (userId, amount, batch) => {
         amount: commission,
         currency: 'CDF',
         status: 'completed',
-        description: `Commission parrainage niveau ${index + 1}`,
+        description: `Commission parrainage ${isFirstInvestment ? 'premier investissement' : 'réinvestissement'} niveau ${index + 1}`,
         metadata: {
           referredUserId: userId,
           referredUserPhone: userData.phone,
+          referredUserEmail: userData.email,
           commissionLevel: index + 1,
           investmentAmount: amount,
           commissionRate: commissionRates[index],
-          chainIndex: index
+          chainIndex: index,
+          isFirstInvestment: isFirstInvestment, // ← Indiquer si c'est le premier investissement
+          timestamp: serverTimestamp()
         },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -548,24 +556,36 @@ const triggerReferralCommissions = async (userId, amount, batch) => {
     return new Intl.NumberFormat('fr-FR').format(Math.round(amount));
   };
 
-  // Vérifier si l'utilisateur peut participer
-  const canParticipate = (level) => {
-    if (!wallet || !user) return false;
+ // Remplacer la fonction actuelle par :
+const canParticipate = (level) => {
+  if (!wallet || !user) return false;
+  
+  // Vérifier si déjà actif
+  const isAlreadyActive = userLevels.some(
+    ul => ul.levelId === level.levelId && ul.status === 'active'
+  );
+  
+  if (isAlreadyActive) return false;
+  
+  // Vérifier progression irréversible
+  if (!canSwitchToLevel(level)) return false;
+  
+  // Récupérer le niveau actif (si existe)
+  const currentActive = userLevels.find(ul => ul.status === 'active');
+  
+  if (currentActive) {
+    // LOGIQUE MODIFIÉE : Pour un upgrade
+    const currentInvestment = currentActive.investedAmount || 0;
+    const walletBalance = wallet.balances?.wallet?.amount || 0;
+    const totalAvailable = currentInvestment + walletBalance;
     
-    // Vérifier si déjà actif
-    const isAlreadyActive = userLevels.some(
-      ul => ul.levelId === level.levelId && ul.status === 'active'
-    );
-    
-    if (isAlreadyActive) return false;
-    
-    // Vérifier progression irréversible
-    if (!canSwitchToLevel(level)) return false;
-    
-    // Vérifier solde
+    return totalAvailable >= level.requiredAmount;
+  } else {
+    // Premier investissement : logique normale
     const walletBalance = wallet.balances?.wallet?.amount || 0;
     return walletBalance >= level.requiredAmount;
-  };
+  }
+};
 
   // Calculer le revenu mensuel
   const calculateMonthlyIncome = (dailyGain) => {

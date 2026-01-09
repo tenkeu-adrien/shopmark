@@ -115,7 +115,7 @@ const getCurrentBalance = (balanceType) => {
     case 'referralEarnings':
       return userWallet.referralEarnings || 0;
     default:
-      return userWallet.available || 0;
+      return 0; // Retourner 0 au lieu du wallet
   }
 };
 
@@ -338,9 +338,21 @@ const handleBalanceUpdate = async () => {
         firestorePath = 'balances.wallet.amount';
     }
 
-    const currentBalance = userDoc.data()?.balances?.wallet?.amount || 
-                          userDoc.data()?.balances?.action?.amount || 
-                          userDoc.data()?.stats?.referralEarnings || 0;
+   let currentBalance = 0;
+const walletData = userDoc.data();
+
+// Récupérer le bon solde selon le type
+switch(balanceForm.balanceType) {
+  case 'wallet':
+    currentBalance = walletData?.balances?.wallet?.amount || 0;
+    break;
+  case 'action':
+    currentBalance = walletData?.balances?.action?.amount || 0;
+    break;
+  case 'referralEarnings':
+    currentBalance = walletData?.stats?.referralEarnings || 0;
+    break;
+}
     
     const newAmount = balanceForm.type === 'add' ? amount : -amount;
     const newBalance = currentBalance + newAmount;
@@ -362,11 +374,42 @@ const handleBalanceUpdate = async () => {
     };
 
     // Mettre à jour le solde spécifique et l'historique
-    await updateDoc(walletRef, {
-      [firestorePath]: newBalance,
-      'balanceHistory': arrayUnion(balanceHistoryEntry),
-      updatedAt: serverTimestamp()
-    });
+ const updateData = {
+  'balanceHistory': arrayUnion(balanceHistoryEntry),
+  updatedAt: serverTimestamp()
+};
+
+// Ajouter l'incrémentation/décrémentation du solde selon le type
+updateData[firestorePath] = newBalance; // La nouvelle valeur calculée
+
+// Mettre à jour les statistiques selon le type d'opération
+if (balanceForm.type === 'add') {
+  // Pour TOUS les ajouts, mettre à jour totalEarned
+  updateData['stats.totalEarned'] = increment(amount);
+  
+  // Ajouter des statistiques spécifiques selon le type
+  if (balanceForm.balanceType === 'wallet') {
+    updateData['balances.totalDeposited.amount'] = increment(amount);
+    updateData['stats.totalDeposited'] = increment(amount);
+  } else if (balanceForm.balanceType === 'action') {
+    updateData['stats.totalInvested'] = increment(amount);
+  } else if (balanceForm.balanceType === 'referralEarnings') {
+    updateData['stats.referralEarnings'] = increment(amount);
+  }
+} else {
+  // Pour les retraits
+  if (balanceForm.balanceType === 'wallet') {
+    updateData['stats.totalWithdrawn'] = increment(amount);
+  } else if (balanceForm.balanceType === 'action') {
+    updateData['stats.totalInvested'] = increment(-amount);
+  } else if (balanceForm.balanceType === 'referralEarnings') {
+    updateData['stats.referralEarnings'] = increment(-amount);
+    updateData['stats.totalEarned'] = increment(-amount);
+  }
+}
+
+// Appliquer la mise à jour
+await updateDoc(walletRef, updateData);
 
     // Mettre à jour les statistiques globales si c'est un ajout au wallet
     if (balanceForm.type === 'add' && balanceForm.balanceType === 'wallet') {
@@ -376,7 +419,8 @@ const handleBalanceUpdate = async () => {
       });
     }
 
-    alert(`✅ ${getBalanceLabel(balanceForm.balanceType)} ${balanceForm.type === 'add' ? 'ajouté' : 'retiré'} avec succès !\nNouveau solde: ${formatAmount(newBalance)} CDF`);
+const operationType = balanceForm.type === 'add' ? 'ajouté à' : 'retiré de';
+alert(`✅ ${formatAmount(amount)} CDF ${operationType} ${getBalanceLabel(balanceForm.balanceType)} avec succès !\n\n💰 Ancien solde: ${formatAmount(currentBalance)} CDF\n💰 Nouveau solde: ${formatAmount(newBalance)} CDF\n📊 Différence: ${balanceForm.type === 'add' ? '+' : '-'}${formatAmount(amount)} CDF`);
     
     // Réinitialiser le formulaire
     setBalanceForm({

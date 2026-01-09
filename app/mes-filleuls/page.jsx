@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { 
@@ -11,6 +11,7 @@ import {
   doc,
   getDoc,
   orderBy,
+  Timestamp
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -31,9 +32,14 @@ import {
   Download,
   User,
   Award,
-  RefreshCw
+  RefreshCw,
+  AlertCircle,
+  TrendingDown,
+  BarChart3,
+  Target
 } from "lucide-react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function MesFilleulsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -49,8 +55,124 @@ export default function MesFilleulsPage() {
     total: 0,
     actifs: 0,
     inactifs: 0,
-    totalInvesti: 0
+    totalInvesti: 0,
+    bonusMois: 0,
+    bonusSemaine: 0
   });
+
+  // Fonction pour récupérer récursivement les filleuls sur 3 niveaux
+  const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
+    if (niveauActuel > maxNiveau) return [];
+    
+    const filleulsQuery = query(
+      collection(db, 'users'),
+      where('referrerId', '==', userId)
+    );
+    
+    const snapshot = await getDocs(filleulsQuery);
+    const filleulsNiveau = [];
+    
+    for (const filleulDoc of snapshot.docs) {
+      const filleulData = filleulDoc.data();
+      const filleulId = filleulDoc.id;
+      
+      // Récupérer les investissements
+      const userLevelsQuery = query(
+        collection(db, 'user_levels'),
+        where('userId', '==', filleulId)
+      );
+      const userLevelsSnapshot = await getDocs(userLevelsQuery);
+      
+      // Trouver le premier investissement
+      let premierInvestissement = null;
+      let totalInvesti = 0;
+      let status = "inactif";
+      
+      userLevelsSnapshot.docs.forEach(levelDoc => {
+        const levelData = levelDoc.data();
+        const montant = levelData.investedAmount || 0;
+        totalInvesti += montant;
+        
+        // Premier investissement (isFirstInvestment flag ou le plus ancien)
+        if (levelData.isFirstInvestment === true) {
+          premierInvestissement = levelData;
+        }
+      });
+      
+      // Si pas de flag, prendre le plus ancien investissement
+      if (!premierInvestissement && userLevelsSnapshot.docs.length > 0) {
+        const sorted = userLevelsSnapshot.docs.sort((a, b) => {
+          const dateA = a.data().startDate?.toDate?.() || new Date(0);
+          const dateB = b.data().startDate?.toDate?.() || new Date(0);
+          return dateA - dateB;
+        });
+        premierInvestissement = sorted[0]?.data();
+      }
+      
+      if (totalInvesti > 0) {
+        status = "actif";
+      }
+      
+      // Récupérer les commissions pour ce filleul
+      const commissionsQuery = query(
+        collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('type', '==', 'referral_commission'),
+        where('metadata.referredUserId', '==', filleulId)
+      );
+      
+      const commissionsSnapshot = await getDocs(commissionsQuery);
+      let bonusFilleul = 0;
+      const bonusDetails = [];
+      
+      commissionsSnapshot.docs.forEach(commDoc => {
+        const commData = commDoc.data();
+        const montant = commData.amount || 0;
+        bonusFilleul += montant;
+        bonusDetails.push({
+          montant: montant,
+          date: commData.createdAt?.toDate?.() || new Date(),
+          niveau: commData.metadata?.commissionLevel || niveauActuel,
+          taux: commData.metadata?.commissionRate || (niveauActuel === 1 ? 0.03 : niveauActuel === 2 ? 0.02 : 0.01)
+        });
+      });
+      
+      // Taux de commission selon le niveau
+      const commissionRate = niveauActuel === 1 ? 3 : niveauActuel === 2 ? 2 : 1;
+      
+      // Récupérer le niveau d'investissement actuel
+      const niveauActuelInvest = userLevelsSnapshot.docs
+        .map(doc => doc.data())
+        .find(inv => inv.status === 'active');
+      
+      filleulsNiveau.push({
+        id: filleulId,
+        name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
+        phone: filleulData.phone || "Non renseigné",
+        email: filleulData.email || "Sans email",
+        inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
+        montantInvesti: totalInvesti,
+        montantPremierInvest: premierInvestissement?.investedAmount || 0,
+        niveauInvestissement: niveauActuelInvest?.levelName || premierInvestissement?.levelName || "Non investi",
+        commissionRate: commissionRate,
+        bonusGagne: bonusFilleul,
+        bonusDetails: bonusDetails,
+        status: status,
+        niveauParrainage: niveauActuel,
+        lastLogin: filleulData.lastLogin?.toDate?.() || null,
+        totalInvestissements: userLevelsSnapshot.docs.length,
+        premierInvestissementDate: premierInvestissement?.startDate?.toDate?.() || null
+      });
+      
+      // Récupérer les filleuls du niveau suivant (récursif)
+      if (niveauActuel < maxNiveau) {
+        const filleulsSuivants = await getFilleulsRecursif(filleulId, niveauActuel + 1, maxNiveau);
+        filleulsNiveau.push(...filleulsSuivants);
+      }
+    }
+    
+    return filleulsNiveau;
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -68,96 +190,69 @@ export default function MesFilleulsPage() {
     
     try {
       setLoading(true);
+      console.log('🔄 Chargement des données des filleuls sur 3 niveaux...');
       
-      // 1. Récupérer tous les filleuls directs (niveau 1)
-      const filleulsQuery = query(
-        collection(db, 'users'),
-        where('referrerId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
+      // Récupérer tous les filleuls sur 3 niveaux
+      const tousFilleuls = await getFilleulsRecursif(user.uid, 1, 3);
       
-      const filleulsSnapshot = await getDocs(filleulsQuery);
-      const filleulsList = [];
-      let totalBonusCalc = 0;
+      console.log('👥 Tous filleuls récupérés:', tousFilleuls.length);
+      
+      // Calculer les statistiques
       let totalInvesti = 0;
       let actifsCount = 0;
+      let totalBonusCalc = 0;
+      let bonusMoisCalc = 0;
+      let bonusSemaineCalc = 0;
       
-      // 2. Pour chaque filleul, récupérer les détails supplémentaires
-      for (const filleulDoc of filleulsSnapshot.docs) {
-        const filleulData = filleulDoc.data();
-        const filleulId = filleulDoc.id;
+      const maintenant = new Date();
+      const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+      const debutSemaine = new Date(maintenant);
+      debutSemaine.setDate(maintenant.getDate() - 7);
+      
+      tousFilleuls.forEach(filleul => {
+        totalInvesti += filleul.montantInvesti;
         
-        // Récupérer les investissements du filleul
-        const userLevelsQuery = query(
-          collection(db, 'user_levels'),
-          where('userId', '==', filleulId),
-          where('isFirstInvestment', '==', true)
-        );
-        
-        const userLevelsSnapshot = await getDocs(userLevelsQuery);
-        const firstInvestment = userLevelsSnapshot.docs[0];
-        
-        // Récupérer le wallet du filleul
-        const walletDoc = await getDoc(doc(db, 'wallets', filleulId));
-        const walletData = walletDoc.exists() ? walletDoc.data() : {};
-        
-
-        console.log("walletData pour filleulId", filleulId, ":", walletData);
-        console.log("firstInvestment pour filleulId", filleulId, ":", firstInvestment?.data());
-        // Récupérer les transactions de parrainage liées à ce filleul
-        const commissionsQuery = query(
-          collection(db, 'transactions'),
-          where('userId', '==', user.uid),
-          where('type', '==', 'referral_commission'),
-          where('metadata.referredUserId', '==', filleulId)
-        );
-        
-        const commissionsSnapshot = await getDocs(commissionsQuery);
-        const totalCommission = commissionsSnapshot.docs.reduce((sum, doc) => {
-          return sum + (doc.data().amount || 0);
-        }, 0);
-        
-        totalBonusCalc += totalCommission;
-        
-        // Déterminer le statut
-        let status = "inactif";
-        if (firstInvestment) {
-          status = "actif";
+        if (filleul.status === 'actif') {
           actifsCount++;
-          totalInvesti += firstInvestment.data().investedAmount || 0;
         }
         
-        // Déterminer le pourcentage de commission (3% pour niveau 1)
-        const commissionRate = 3;
+        totalBonusCalc += filleul.bonusGagne;
         
-        filleulsList.push({
-          id: filleulId,
-          name: filleulData.displayName || filleulData.phone || "Utilisateur",
-          phone: filleulData.phone || "Non renseigné",
-          email: filleulData.email || "Sans email",
-          inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
-          montantInvesti: firstInvestment?.data()?.investedAmount || 0,
-          niveauInvestissement: firstInvestment?.data()?.levelName || "Non investi",
-          commissionRate: commissionRate,
-          bonusGagne: totalCommission,
-          status: status,
-          lastLogin: filleulData.lastLogin?.toDate?.() || null,
-          walletBalance: walletData.balances?.wallet?.amount || 0,
-          investedBalance: walletData.balances?.action?.amount || 0
+        // Calculer bonus du mois et semaine
+        filleul.bonusDetails?.forEach(detail => {
+          const dateBonus = detail.date;
+          if (dateBonus >= debutMois) {
+            bonusMoisCalc += detail.montant;
+          }
+          if (dateBonus >= debutSemaine) {
+            bonusSemaineCalc += detail.montant;
+          }
         });
-      }
+      });
       
-      setFilleuls(filleulsList);
+      // Trier par niveau puis par date d'inscription
+      const filleulsTries = tousFilleuls.sort((a, b) => {
+        // D'abord par niveau
+        if (a.niveauParrainage !== b.niveauParrainage) {
+          return a.niveauParrainage - b.niveauParrainage;
+        }
+        // Ensuite par date d'inscription (plus récent d'abord)
+        return new Date(b.inscriptionDate) - new Date(a.inscriptionDate);
+      });
+      
+      setFilleuls(filleulsTries);
       setTotalBonus(totalBonusCalc);
       setStats({
-        total: filleulsList.length,
+        total: tousFilleuls.length,
         actifs: actifsCount,
-        inactifs: filleulsList.length - actifsCount,
-        totalInvesti: totalInvesti
+        inactifs: tousFilleuls.length - actifsCount,
+        totalInvesti: totalInvesti,
+        bonusMois: bonusMoisCalc,
+        bonusSemaine: bonusSemaineCalc
       });
       
     } catch (error) {
-      console.error('Erreur chargement filleuls:', error);
+      console.error('❌ Erreur chargement filleuls:', error);
     } finally {
       setLoading(false);
     }
@@ -199,19 +294,51 @@ export default function MesFilleulsPage() {
     });
   };
 
+  const formatDateTime = (date) => {
+    if (!date) return "";
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'CDF',
       minimumFractionDigits: 0,
-    }).format(amount);
+      maximumFractionDigits: 0
+    }).format(amount) + ' CDF';
   };
 
   const handleRefresh = () => {
     loadFilleulsData();
   };
 
+  const getBonusColor = (montant) => {
+    if (montant > 50000) return 'text-purple-600';
+    if (montant > 20000) return 'text-green-600';
+    if (montant > 5000) return 'text-blue-600';
+    return 'text-gray-600';
+  };
 
+  const getBonusBgColor = (montant) => {
+    if (montant > 50000) return 'bg-purple-50 border-purple-200';
+    if (montant > 20000) return 'bg-green-50 border-green-200';
+    if (montant > 5000) return 'bg-blue-50 border-blue-200';
+    return 'bg-gray-50 border-gray-200';
+  };
+
+  const getNiveauColor = (niveau) => {
+    switch(niveau) {
+      case 1: return 'bg-blue-100 text-blue-800';
+      case 2: return 'bg-green-100 text-green-800';
+      case 3: return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -219,50 +346,56 @@ export default function MesFilleulsPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Chargement de vos filleuls...</p>
+          <p className="text-sm text-gray-400 mt-2">Récupération des commissions sur 3 niveaux...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-20">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors p-2 rounded-lg hover:bg-gray-100"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span className="hidden sm:inline">Retour</span>
               </button>
               
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Mes filleuls</h1>
-                <p className="text-gray-600 text-sm mt-1">Gérez votre réseau de parrainage</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mes filleuls</h1>
+                <p className="text-gray-600 text-sm mt-1">Gestion du réseau de parrainage (3 niveaux)</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={loading}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualiser</span>
               </button>
-              
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Statistiques en haut */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-xl p-5 shadow-sm border border-gray-200"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total filleuls</p>
@@ -272,21 +405,34 @@ export default function MesFilleulsPage() {
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
             </div>
-          </div>
+          </motion.div>
           
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="bg-white rounded-xl p-5 shadow-sm border border-gray-200"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Actifs</p>
                 <p className="text-2xl font-bold text-green-600">{stats.actifs}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.total > 0 ? `${((stats.actifs / stats.total) * 100).toFixed(1)}%` : '0%'} taux d'activation
+                </p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
-          </div>
+          </motion.div>
           
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="bg-white rounded-xl p-5 shadow-sm border border-gray-200"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total investi</p>
@@ -296,19 +442,7 @@ export default function MesFilleulsPage() {
                 <TrendingUp className="w-6 h-6 text-purple-600" />
               </div>
             </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Bonus total</p>
-                <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalBonus)}</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <DollarSign className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Barre de recherche et filtres */}
@@ -327,7 +461,7 @@ export default function MesFilleulsPage() {
               </div>
             </div>
             
-            {/* <div className="flex gap-3">
+            <div className="flex gap-3">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -337,292 +471,349 @@ export default function MesFilleulsPage() {
                 <option value="actif">Actifs uniquement</option>
                 <option value="inactif">Inactifs uniquement</option>
               </select>
-              
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Exporter</span>
-              </button>
-            </div> */}
+            </div>
           </div>
           
-          <div className="mt-4 text-sm text-gray-500">
-            {filteredFilleuls.length} filleul(s) trouvé(s) sur {filleuls.length}
+          <div className="mt-4 text-sm text-gray-500 flex flex-wrap gap-4">
+            <span>{filteredFilleuls.length} filleul(s) trouvé(s) sur {filleuls.length}</span>
+            {totalBonus > 0 && (
+              <>
+                <span className="hidden sm:inline">•</span>
+                <span className="text-amber-600 font-medium">
+                  Bonus total: {formatCurrency(totalBonus)}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
         {/* Table des filleuls */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Filleul
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Téléphone
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Inscription
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
-                      Investissement
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Niveau
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <Percent className="w-4 h-4" />
-                      Bonus %
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bonus gagné
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                </tr>
-              </thead>
-              
-              <tbody className="divide-y divide-gray-200">
-                {currentFilleuls.length > 0 ? (
-                  currentFilleuls.map((filleul, index) => (
-                    <tr 
-                      key={filleul.id} 
-                      className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
-                            {filleul.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{filleul.name}</div>
-                            <div className="text-xs text-gray-500 truncate max-w-[150px]">{filleul.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{filleul.phone}</div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(filleul.inscriptionDate)}</div>
-                        {filleul.lastLogin && (
-                          <div className="text-xs text-gray-500">
-                            Dernière connexion: {formatDate(filleul.lastLogin)}
-                          </div>
-                        )}
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-semibold ${filleul.montantInvesti > 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {formatCurrency(filleul.montantInvesti)}
-                        </div>
-                        {filleul.montantInvesti > 0 && (
-                          <div className="text-xs text-gray-500">
-                            Actuel: {formatCurrency(filleul.investedBalance)}
-                          </div>
-                        )}
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                          filleul.niveauInvestissement === "Non investi" 
-                            ? 'bg-gray-100 text-gray-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {filleul.niveauInvestissement}
-                        </span>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-blue-600">{filleul.commissionRate}%</div>
-                        <div className="text-xs text-gray-500">Commission niveau 1</div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-amber-600">
-                          {formatCurrency(filleul.bonusGagne)}
-                        </div>
-                        {filleul.bonusGagne > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {filleul.montantInvesti > 0 ? 
-                              `${(filleul.bonusGagne / filleul.montantInvesti * 100).toFixed(1)}% de son investissement` : 
-                              'Bonus reçu'
-                            }
-                          </div>
-                        )}
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            filleul.status === 'actif' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {filleul.status === 'actif' ? (
-                              <>
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Actif
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="w-3 h-3 mr-1" />
-                                Inactif
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <Users className="w-12 h-12 text-gray-400 mb-3" />
-                        <p className="text-gray-500 text-lg font-medium">Aucun filleul trouvé</p>
-                        <p className="text-gray-400 mt-2">
-                          {searchTerm ? 'Aucun résultat pour votre recherche' : 'Vous n\'avez pas encore de filleuls'}
-                        </p>
-                       
-                      </div>
-                    </td>
-                  </tr>
+          {filteredFilleuls.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <Users className="w-16 h-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 text-lg font-medium">Aucun filleul trouvé</p>
+                <p className="text-gray-400 mt-2 max-w-md">
+                  {searchTerm 
+                    ? 'Aucun résultat pour votre recherche'
+                    : 'Vous n\'avez pas encore de filleuls. Partagez votre lien d\'invitation pour agrandir votre réseau !'
+                  }
+                </p>
+                {!searchTerm && (
+                  <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Obtenir mon lien d'invitation
+                  </button>
                 )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="text-sm text-gray-700">
-                  Affichage de <span className="font-medium">{indexOfFirstItem + 1}</span> à{" "}
-                  <span className="font-medium">{Math.min(indexOfLastItem, filteredFilleuls.length)}</span> sur{" "}
-                  <span className="font-medium">{filteredFilleuls.length}</span> filleuls
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${
-                      currentPage === 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
-                    }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Précédent
-                  </button>
-                  
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-8 h-8 rounded-lg ${
-                            currentPage === pageNum
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${
-                      currentPage === totalPages
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
-                    }`}
-                  >
-                    Suivant
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
             </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Filleul
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Téléphone
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Investissement
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Niveau
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bonus %
+                      </th>
+                      {/* <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bonus gagné
+                      </th> */}
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Statut
+                      </th>
+                    </tr>
+                  </thead>
+                  
+                  <tbody className="divide-y divide-gray-200">
+                    {currentFilleuls.map((filleul, index) => (
+                      <motion.tr 
+                        key={filleul.id} 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: index * 0.05 }}
+                        className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                              {filleul.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
+                                {filleul.name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {formatDate(filleul.inscriptionDate)}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{filleul.phone}</div>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <div className={`text-sm font-semibold ${filleul.montantInvesti > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                            {formatCurrency(filleul.montantInvesti)}
+                          </div>
+                          {filleul.totalInvestissements > 0 && (
+                            <div className="text-xs text-gray-500">
+                              {filleul.totalInvestissements} investissement(s)
+                            </div>
+                          )}
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getNiveauColor(filleul.niveauParrainage)}`}>
+                            Niveau {filleul.niveauParrainage}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {filleul.niveauInvestissement}
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-bold text-blue-600">{filleul.commissionRate}%</div>
+                          <div className="text-xs text-gray-500">
+                            Commission niveau {filleul.niveauParrainage}
+                          </div>
+                        </td>
+{/*                         
+                        <td className="px-6 py-4">
+                          <div className={`p-3 rounded-lg ${getBonusBgColor(filleul.bonusGagne)}`}>
+                            <div className={`text-lg font-bold ${getBonusColor(filleul.bonusGagne)}`}>
+                              {formatCurrency(filleul.bonusGagne)}
+                            </div>
+                            
+                            {filleul.bonusGagne > 0 && filleul.montantPremierInvest > 0 && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                sur {formatCurrency(filleul.montantPremierInvest)} (1er invest)
+                              </div>
+                            )}
+                            
+                            {filleul.bonusDetails && filleul.bonusDetails.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="text-xs text-gray-500">
+                                  {filleul.bonusDetails.length} paiement(s)
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td> */}
+                        
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              filleul.status === 'actif' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {filleul.status === 'actif' ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Actif
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Inactif
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          {filleul.premierInvestissementDate && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              1er invest: {formatDate(filleul.premierInvestissementDate)}
+                            </div>
+                          )}
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="text-sm text-gray-700">
+                      Affichage de <span className="font-medium">{indexOfFirstItem + 1}</span> à{" "}
+                      <span className="font-medium">{Math.min(indexOfLastItem, filteredFilleuls.length)}</span> sur{" "}
+                      <span className="font-medium">{filteredFilleuls.length}</span> filleuls
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                        }`}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Précédent
+                      </button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-8 h-8 rounded-lg ${
+                                currentPage === pageNum
+                                  ? 'bg-blue-600 text-white font-semibold'
+                                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                        }`}
+                      >
+                        Suivant
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           
-          {/* Total bonus en bas */}
-          <div className="px-6 py-4 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-amber-600" />
+          {/* Section Bonus Total en bas */}
+          {totalBonus > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-6 py-6 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-200"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-lg p-4 border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <DollarSign className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">Bonus total reçu</p>
+                      <p className="text-2xl font-bold text-amber-700">{formatCurrency(totalBonus)}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-900">Bonus total reçu</p>
-                  <p className="text-xs text-amber-700">Sur l'ensemble de vos filleuls</p>
+                
+                <div className="bg-white rounded-lg p-4 border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Target className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-900">Performance</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {stats.totalInvesti > 0 
+                          ? `${((totalBonus / stats.totalInvesti) * 100).toFixed(1)}%`
+                          : '0%'
+                        }
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">Retour sur investissements</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-4 border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <TrendingUp className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Moyenne par filleul</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {stats.actifs > 0 
+                          ? formatCurrency(totalBonus / stats.actifs)
+                          : formatCurrency(0)
+                        }
+                      </p>
+                      <p className="text-xs text-blue-700 mt-1">Par filleul actif</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-amber-700">{formatCurrency(totalBonus)}</p>
-                <p className="text-xs text-amber-600 mt-1">
-                  Commission totale de parrainage
+              
+              <div className="mt-4 text-center">
+                <p className="text-sm text-amber-700">
+                  💰 Ces commissions sont automatiquement ajoutées à votre solde disponible
                 </p>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          )}
         </div>
 
-        {/* Informations */}
+        {/* Informations sur les commissions */}
         <div className="mt-8 bg-blue-50 rounded-xl border border-blue-200 p-5">
           <div className="flex items-start gap-3">
             <div className="bg-blue-100 p-2 rounded-lg">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <AlertCircle className="w-5 h-5 text-blue-600" />
             </div>
-            <div>
-              <p className="font-medium text-gray-900 mb-1">Informations sur les commissions</p>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• <strong>Commission niveau 1</strong> : Vous recevez 3% du premier investissement de chaque filleul direct</li>
-                <li>• <strong>Statut Actif</strong> : Le filleul a effectué au moins un investissement</li>
-                <li>• <strong>Statut Inactif</strong> : Le filleul ne s'est pas encore investi</li>
-                <li>• <strong>Bonus gagné</strong> : Montant total des commissions reçues pour ce filleul</li>
-                <li>• <strong>Niveau d'investissement</strong> : Niveau actuel du filleul (Premium, VIP, etc.)</li>
-                <li>• Les commissions sont versées automatiquement dès le premier investissement validé</li>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900 mb-2">Comment fonctionnent les commissions ?</p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span><strong>Niveau 1 : 3%</strong> sur le premier investissement de chaque filleul direct</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span><strong>Niveau 2 : 2%</strong> sur le premier investissement des filleuls indirects (niveau 2)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span><strong>Niveau 3 : 1%</strong> sur le premier investissement des filleuls indirects (niveau 3)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span>Les commissions sont <strong>versées instantanément</strong> dès que votre filleul investit</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span><strong>Limite à 3 niveaux</strong> : Aucune commission au-delà du niveau 3</span>
+                </li>
               </ul>
             </div>
           </div>

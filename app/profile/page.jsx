@@ -198,9 +198,9 @@ export default function ProfilePage() {
                   <Phone className="w-4 h-4 mr-2" />
                   <span className="font-medium">{user.phone}</span>
                 </div>
-                <p className="text-sm text-gray-600">
+                {/* <p className="text-sm text-gray-600">
                   Retrait total commandé : <span className="font-bold text-amber-600"> CDF {formatAmount(user.totalWithdrawal)}</span>
-                </p>
+                </p> */}
               </div>
               
               {/* Statut */}

@@ -408,7 +408,7 @@ export default function RevenueHistoryPage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          {/* <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-5 h-5 text-blue-600" />
               <span className="text-sm font-medium text-gray-600">Ce mois</span>
@@ -416,7 +416,7 @@ export default function RevenueHistoryPage() {
             <p className="text-xl font-bold text-gray-900">
               {formatAmount(stats.monthlyEarnings)} CDF
             </p>
-          </div>
+          </div> */}
         </div>
 
         {/* Filtres */}
