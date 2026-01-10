@@ -1566,7 +1566,8 @@ import {
   arrayUnion,
   writeBatch,
   Timestamp,
-  runTransaction
+  runTransaction,
+  setDoc
 } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import BackButton from '@/components/BackButton';

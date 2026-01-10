@@ -306,8 +306,6 @@ export default function CriteoWelcomePage() {
     return totalAvailable >= level.requiredAmount;
   }, [wallet, user, userLevels, canSwitchToLevel, getTotalAvailableBalance]);
 
-  // LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
-// LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
 const handleParticipate = async (level) => {
   if (!user || !wallet) {
     setError('Veuillez vous connecter pour participer');
@@ -359,7 +357,7 @@ const handleParticipate = async (level) => {
       });
     }
 
-    // 2. CALCULER LE TRANSFERT FINANCIER (LOGIQUE CORRIGÉE)
+    // 2. CALCULER LE TRANSFERT FINANCIER
     const walletRef = doc(db, 'wallets', user.uid);
     const currentAvailableBalance = wallet.balances?.wallet?.amount || 0;
     const currentInvestedBalance = wallet.balances?.action?.amount || 0;
@@ -367,7 +365,7 @@ const handleParticipate = async (level) => {
     // Montant requis du nouveau niveau
     const amountToInvest = level.requiredAmount;
     
-    // NOUVELLE LOGIQUE : Calculer uniquement le complément nécessaire depuis le solde disponible
+    // Calculer uniquement le complément nécessaire depuis le solde disponible
     const neededFromWallet = amountToInvest - currentInvestedBalance;
     
     // Vérifier que le solde disponible est suffisant pour le complément
@@ -379,7 +377,6 @@ const handleParticipate = async (level) => {
     const amountToDeductFromWallet = neededFromWallet;
     
     // Montant à ajouter au solde investi (le complément uniquement)
-    // Le solde investi existant reste intact
     const amountToAddToInvestment = neededFromWallet;
 
     // 3. APPLIQUER LES TRANSFERTS DE FONDS
@@ -414,78 +411,61 @@ const handleParticipate = async (level) => {
         newInvestedAmount: amountToInvest,
         walletDeduction: amountToDeductFromWallet,
         walletBalanceAfter: currentAvailableBalance - amountToDeductFromWallet,
-        investmentAdded: amountToAddToInvestment,
-        note: 'Nouvelle logique: uniquement complément depuis solde disponible'
+        investmentAdded: amountToAddToInvestment
       },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
 
-    // 5. LOGIQUE DE CALCUL JOURNALIER UNIQUE PAR JOUR
-    const today = new Date().toISOString().split('T')[0]; // Format "YYYY-MM-DD"
-    const dailyCalcRef = doc(db, 'daily_calculations', `${user.uid}_${today}`);
-    const dailyCalcSnap = await getDoc(dailyCalcRef);
+    // 5. LOGIQUE DE GAIN JOURNALIER (UNIQUEMENT AU PREMIER INVESTISSEMENT)
+    // Le gain est calculé UNE SEULE FOIS, basé sur le pourcentage du niveau
+    // Gain = montant investi × taux journalier du niveau
+    const isFirstInvestmentEver = !currentActive; // Vérifier si c'est le tout premier investissement
     
-    // Vérifier si c'est le premier calcul du jour
-    if (!dailyCalcSnap.exists()) {
-      const dailyGain = level.dailyGain || 0;
+    if (isFirstInvestmentEver) {
+      const dailyGain = level.requiredAmount * level.dailyReturnRate; // Calcul du gain basé sur le pourcentage
+      console.log(`🎯 Gain initial calculé: ${dailyGain} CDF (${level.requiredAmount} × ${level.dailyReturnRate})`);
       
       if (dailyGain > 0) {
-        // Ajouter le gain journalier au solde disponible
+        // Ajouter le gain UNIQUEMENT au premier investissement
         batch.update(walletRef, {
           'balances.wallet.amount': increment(dailyGain),
           'stats.totalEarned': increment(dailyGain)
         });
         
-        // Créer une transaction pour le gain journalier
+        // Créer une transaction pour le gain initial
         const gainRef = doc(collection(db, 'transactions'));
         batch.set(gainRef, {
-          transactionId: `GAIN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          transactionId: `GAIN_INITIAL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId: user.uid,
           userEmail: user.email,
-          type: 'daily_earnings',
+          type: 'initial_daily_gain',
           amount: dailyGain,
           currency: 'CDF',
           status: 'completed',
-          description: `Gain journalier - ${level.name}`,
+          description: `Gain initial - Niveau ${level.name}`,
           metadata: {
             levelId: level.levelId,
             levelName: level.name,
-            date: today,
-            isImmediateCalculation: true,
-            triggeredBy: currentActive ? 'level_change' : 'first_investment'
+            investmentAmount: level.requiredAmount,
+            dailyReturnRate: level.dailyReturnRate,
+            dailyReturnPercentage: `${(level.dailyReturnRate * 100).toFixed(2)}%`,
+            calculatedAt: new Date().toISOString(),
+            isFirstInvestmentGain: true,
+            note: 'Gain calculé une seule fois au premier investissement'
           },
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
       }
-      
-      // Marquer comme calculé aujourd'hui
-      batch.set(dailyCalcRef, {
-        userId: user.uid,
-        userEmail: user.email,
-        date: today,
-        levelId: level.levelId,
-        levelName: level.name,
-        dailyGain: dailyGain,
-        calculated: true,
-        isFirstCalculationOfDay: true,
-        calculatedAt: serverTimestamp(),
-        createdAt: serverTimestamp()
-      });
     } else {
-      // Déjà calculé aujourd'hui - pas de nouveau calcul
-      console.log('Gains déjà calculés aujourd\'hui pour cet utilisateur');
+      console.log('🔄 Changement de niveau - Aucun gain ajouté (gain déjà reçu au premier investissement)');
     }
 
     // 6. CRÉER LE NOUVEAU USER_LEVEL
     const userLevelRef = doc(collection(db, 'user_levels'));
     const endDate = new Date(now);
     endDate.setDate(now.getDate() + level.durationDays);
-    
-    const nextPayoutAt = new Date(now);
-    nextPayoutAt.setDate(now.getDate() + 1);
-    nextPayoutAt.setHours(0, 0, 0, 0);
 
     batch.set(userLevelRef, {
       userLevelId: userLevelRef.id,
@@ -500,15 +480,15 @@ const handleParticipate = async (level) => {
       startDate: serverTimestamp(),
       scheduledEndDate: Timestamp.fromDate(endDate),
       durationDays: level.durationDays,
-      totalEarned: 0,
+      totalEarned: isFirstInvestmentEver ? level.dailyGain : 0, // Garder trace du gain reçu
       status: 'active',
       previousLevelId: currentActive?.levelId || null,
-      isFirstInvestment: !currentActive,
+      isFirstInvestment: isFirstInvestmentEver,
       previousInvestedBalance: currentInvestedBalance,
       walletContribution: amountToDeductFromWallet,
       previousInvestmentKept: currentInvestedBalance,
-      dailyCalculationDone: dailyCalcSnap.exists(), // Indique si le gain journalier a été ajouté
-      lastCalculationDate: dailyCalcSnap.exists() ? today : null,
+      initialGainReceived: isFirstInvestmentEver, // Flag pour savoir si gain initial reçu
+      initialGainAmount: isFirstInvestmentEver ? (level.requiredAmount * level.dailyReturnRate) : 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -519,11 +499,12 @@ const handleParticipate = async (level) => {
       currentLevel: level.levelId,
       currentLevelName: level.name,
       lastInvestmentAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      hasReceivedInitialGain: isFirstInvestmentEver ? true : (userProfile?.hasReceivedInitialGain || false)
     });
 
-    // 8. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (seulement pour premier investissement)
-    if (!currentActive) {
+    // 8. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (TOUJOURS au premier investissement)
+    if (isFirstInvestmentEver) {
       await triggerReferralCommissions(user.uid, amountToInvest, batch);
     }
 
@@ -532,7 +513,7 @@ const handleParticipate = async (level) => {
 
     setSuccess(currentActive 
       ? `✅ Niveau mis à jour ! Investissement de ${formatAmount(amountToInvest)} CDF réussi.`
-      : `✅ Investissement réussi ! Bienvenue au niveau ${level.name}`
+      : `✅ Investissement réussi ! ${formatAmount(level.requiredAmount * level.dailyReturnRate)} CDF ajoutés comme gain initial.`
     );
 
     // Recharger après succès
