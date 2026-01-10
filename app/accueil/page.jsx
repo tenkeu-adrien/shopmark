@@ -307,7 +307,7 @@ export default function CriteoWelcomePage() {
   }, [wallet, user, userLevels, canSwitchToLevel, getTotalAvailableBalance]);
 
   // LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
- // LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
+// LOGIQUE CORRIGÉE : Gestion des participations avec nouvelle règle financière
 const handleParticipate = async (level) => {
   if (!user || !wallet) {
     setError('Veuillez vous connecter pour participer');
@@ -421,7 +421,64 @@ const handleParticipate = async (level) => {
       updatedAt: serverTimestamp()
     });
 
-    // 5. CRÉER LE NOUVEAU USER_LEVEL
+    // 5. LOGIQUE DE CALCUL JOURNALIER UNIQUE PAR JOUR
+    const today = new Date().toISOString().split('T')[0]; // Format "YYYY-MM-DD"
+    const dailyCalcRef = doc(db, 'daily_calculations', `${user.uid}_${today}`);
+    const dailyCalcSnap = await getDoc(dailyCalcRef);
+    
+    // Vérifier si c'est le premier calcul du jour
+    if (!dailyCalcSnap.exists()) {
+      const dailyGain = level.dailyGain || 0;
+      
+      if (dailyGain > 0) {
+        // Ajouter le gain journalier au solde disponible
+        batch.update(walletRef, {
+          'balances.wallet.amount': increment(dailyGain),
+          'stats.totalEarned': increment(dailyGain)
+        });
+        
+        // Créer une transaction pour le gain journalier
+        const gainRef = doc(collection(db, 'transactions'));
+        batch.set(gainRef, {
+          transactionId: `GAIN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: user.uid,
+          userEmail: user.email,
+          type: 'daily_earnings',
+          amount: dailyGain,
+          currency: 'CDF',
+          status: 'completed',
+          description: `Gain journalier - ${level.name}`,
+          metadata: {
+            levelId: level.levelId,
+            levelName: level.name,
+            date: today,
+            isImmediateCalculation: true,
+            triggeredBy: currentActive ? 'level_change' : 'first_investment'
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // Marquer comme calculé aujourd'hui
+      batch.set(dailyCalcRef, {
+        userId: user.uid,
+        userEmail: user.email,
+        date: today,
+        levelId: level.levelId,
+        levelName: level.name,
+        dailyGain: dailyGain,
+        calculated: true,
+        isFirstCalculationOfDay: true,
+        calculatedAt: serverTimestamp(),
+        createdAt: serverTimestamp()
+      });
+    } else {
+      // Déjà calculé aujourd'hui - pas de nouveau calcul
+      console.log('Gains déjà calculés aujourd\'hui pour cet utilisateur');
+    }
+
+    // 6. CRÉER LE NOUVEAU USER_LEVEL
     const userLevelRef = doc(collection(db, 'user_levels'));
     const endDate = new Date(now);
     endDate.setDate(now.getDate() + level.durationDays);
@@ -450,11 +507,13 @@ const handleParticipate = async (level) => {
       previousInvestedBalance: currentInvestedBalance,
       walletContribution: amountToDeductFromWallet,
       previousInvestmentKept: currentInvestedBalance,
+      dailyCalculationDone: dailyCalcSnap.exists(), // Indique si le gain journalier a été ajouté
+      lastCalculationDate: dailyCalcSnap.exists() ? today : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
 
-    // 6. METTRE À JOUR LE PROFIL UTILISATEUR
+    // 7. METTRE À JOUR LE PROFIL UTILISATEUR
     const userRef = doc(db, 'users', user.uid);
     batch.update(userRef, {
       currentLevel: level.levelId,
@@ -463,7 +522,7 @@ const handleParticipate = async (level) => {
       updatedAt: serverTimestamp()
     });
 
-    // 7. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (seulement pour premier investissement)
+    // 8. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (seulement pour premier investissement)
     if (!currentActive) {
       await triggerReferralCommissions(user.uid, amountToInvest, batch);
     }

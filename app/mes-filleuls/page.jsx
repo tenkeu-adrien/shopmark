@@ -61,7 +61,7 @@ export default function MesFilleulsPage() {
   });
 
   // Fonction pour récupérer récursivement les filleuls sur 3 niveaux
-  const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
+const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
     if (niveauActuel > maxNiveau) return [];
     
     const filleulsQuery = query(
@@ -83,23 +83,27 @@ export default function MesFilleulsPage() {
       );
       const userLevelsSnapshot = await getDocs(userLevelsQuery);
       
-      // Trouver le premier investissement
+      // Chercher l'investissement actif (un seul possible)
+      let investissementActif = null;
       let premierInvestissement = null;
-      let totalInvesti = 0;
       let status = "inactif";
       
       userLevelsSnapshot.docs.forEach(levelDoc => {
         const levelData = levelDoc.data();
-        const montant = levelData.investedAmount || 0;
-        totalInvesti += montant;
         
-        // Premier investissement (isFirstInvestment flag ou le plus ancien)
+        // Recherche de l'investissement actif (status === 'active')
+        if (levelData.status === 'active') {
+          investissementActif = levelData;
+          status = "actif";
+        }
+        
+        // Premier investissement (pour historique)
         if (levelData.isFirstInvestment === true) {
           premierInvestissement = levelData;
         }
       });
       
-      // Si pas de flag, prendre le plus ancien investissement
+      // Si pas de flag isFirstInvestment, prendre le plus ancien investissement
       if (!premierInvestissement && userLevelsSnapshot.docs.length > 0) {
         const sorted = userLevelsSnapshot.docs.sort((a, b) => {
           const dateA = a.data().startDate?.toDate?.() || new Date(0);
@@ -109,9 +113,11 @@ export default function MesFilleulsPage() {
         premierInvestissement = sorted[0]?.data();
       }
       
-      if (totalInvesti > 0) {
-        status = "actif";
-      }
+      // Montant investi = seulement le montant de l'investissement actif
+      const montantInvesti = investissementActif ? (investissementActif.investedAmount || 0) : 0;
+      
+      // Niveau d'investissement = celui de l'investissement actif
+      const niveauInvestissement = investissementActif?.levelName || premierInvestissement?.levelName || "Non investi";
       
       // Récupérer les commissions pour ce filleul
       const commissionsQuery = query(
@@ -140,24 +146,19 @@ export default function MesFilleulsPage() {
       // Taux de commission selon le niveau
       const commissionRate = niveauActuel === 1 ? 3 : niveauActuel === 2 ? 2 : 1;
       
-      // Récupérer le niveau d'investissement actuel
-      const niveauActuelInvest = userLevelsSnapshot.docs
-        .map(doc => doc.data())
-        .find(inv => inv.status === 'active');
-      
       filleulsNiveau.push({
         id: filleulId,
         name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
         phone: filleulData.phone || "Non renseigné",
         email: filleulData.email || "Sans email",
         inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
-        montantInvesti: totalInvesti,
+        montantInvesti: montantInvesti, // Seulement le montant actif
         montantPremierInvest: premierInvestissement?.investedAmount || 0,
-        niveauInvestissement: niveauActuelInvest?.levelName || premierInvestissement?.levelName || "Non investi",
+        niveauInvestissement: niveauInvestissement, // Niveau de l'investissement actif
         commissionRate: commissionRate,
         bonusGagne: bonusFilleul,
         bonusDetails: bonusDetails,
-        status: status,
+        status: status, // "actif" seulement si a un investissement avec status === 'active'
         niveauParrainage: niveauActuel,
         lastLogin: filleulData.lastLogin?.toDate?.() || null,
         totalInvestissements: userLevelsSnapshot.docs.length,
@@ -173,7 +174,6 @@ export default function MesFilleulsPage() {
     
     return filleulsNiveau;
   };
-
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
@@ -592,28 +592,7 @@ export default function MesFilleulsPage() {
                             Commission niveau {filleul.niveauParrainage}
                           </div>
                         </td>
-{/*                         
-                        <td className="px-6 py-4">
-                          <div className={`p-3 rounded-lg ${getBonusBgColor(filleul.bonusGagne)}`}>
-                            <div className={`text-lg font-bold ${getBonusColor(filleul.bonusGagne)}`}>
-                              {formatCurrency(filleul.bonusGagne)}
-                            </div>
-                            
-                            {filleul.bonusGagne > 0 && filleul.montantPremierInvest > 0 && (
-                              <div className="text-xs text-gray-600 mt-1">
-                                sur {formatCurrency(filleul.montantPremierInvest)} (1er invest)
-                              </div>
-                            )}
-                            
-                            {filleul.bonusDetails && filleul.bonusDetails.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-gray-200">
-                                <div className="text-xs text-gray-500">
-                                  {filleul.bonusDetails.length} paiement(s)
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </td> */}
+
                         
                         <td className="px-6 py-4">
                           <div className="flex items-center">
