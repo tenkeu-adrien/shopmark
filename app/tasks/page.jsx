@@ -463,7 +463,6 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                    {/* Notes pour l'admin (seulement si connecté en tant qu'admin) */}
                     {item.status === 'pending' && (
                       <div className="mt-3">
                         <textarea
@@ -486,56 +485,8 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Résumé statistique */}
-      {/* {!isLoading && transactions[activeView].length > 0 && (
-        <div className="mt-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Récapitulatif</h3>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-gray-800">
-                {transactions[activeView].length}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Transactions totales
-              </div>
-            </div>
-            
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {formatMontant(
-                  transactions[activeView]
-                    .filter(t => t.status === 'confirmed' || t.status === 'completed')
-                    .reduce((sum, t) => sum + t.montant, 0)
-                )}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                CDF confirmés
-              </div>
-            </div>
-            
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-amber-600">
-                {transactions[activeView].filter(t => t.status === 'pending').length}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                En attente
-              </div>
-            </div>
-            
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">
-                {transactions[activeView].filter(t => t.status === 'rejected').length}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Rejetés
-              </div>
-            </div>
-          </div>
-        </div>
-      )} */}
+    
 
-      {/* Espace pour le footer navigation */}
       <div className="h-20"></div>
     </div>
   );

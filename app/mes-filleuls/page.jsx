@@ -736,7 +736,7 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-lg p-4 border border-amber-200">
+                {/* <div className="bg-white rounded-lg p-4 border border-amber-200">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -752,7 +752,7 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
                       <p className="text-xs text-blue-700 mt-1">Par filleul actif</p>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
               
               <div className="mt-4 text-center">

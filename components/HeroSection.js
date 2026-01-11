@@ -15,31 +15,6 @@ export default function HeroWithNavbar({title,content,image}) {
       {/* Overlay sombre */}
       <div className="absolute inset-0 bg-black/60 z-0"></div>
 
-      {/* Navbar */}
-      {/* <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 bg-black/70 backdrop-blur">
-        <h1 className="text-2xl font-bold text-orange-500">Dev Agency</h1>
-        <ul className="flex space-x-6">
-          {navLinks.map((link) => (
-            <motion.li
-              key={link.href}
-              whileHover={{ y: -2 }}
-              className="relative group"
-            >
-              <Link
-                href={link.href}
-                className={`${
-                  pathname === link.href
-                    ? "text-orange-500 font-semibold"
-                    : "text-white"
-                } transition-colors`}
-              >
-                {link.label}
-              </Link>
-              <span className="absolute left-0 bottom-0 w-0 h-[2px] bg-orange-500 transition-all duration-300 group-hover:w-full"></span>
-            </motion.li>
-          ))}
-        </ul>
-      </nav> */}
 
       {/* Hero Content */}
       <div className="relative z-10 flex items-center justify-center min-h-[calc(100vh-80px)] text-center px-6">

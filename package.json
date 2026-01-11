@@ -10,6 +10,8 @@
     "postbuild": "next-sitemap"
   },
   "dependencies": {
+    "@serwist/next": "^9.5.0",
+    "@serwist/sw": "^9.5.0",
     "@tanstack/react-query": "^5.90.12",
     "firebase": "^12.7.0",
     "framer-motion": "^12.9.4",
