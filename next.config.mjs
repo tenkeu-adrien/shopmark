@@ -3,7 +3,7 @@
 import withSerwistInit from '@serwist/next';
 
 const withSerwist = withSerwistInit({
-  swSrc: 'src/sw.ts',           // tu vas créer ce fichier
+  swSrc: 'src/sw.js',           // tu vas créer ce fichier
   swDest: 'public/sw.js',
   cacheOnNavigation: true,
   additionalPrecacheEntries: [
