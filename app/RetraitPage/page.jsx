@@ -732,7 +732,7 @@ export default function RetraitPage() {
               
               <div className="mb-8">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Saisissez le montant {selectedMethod === "crypto" ? "(minimum 30,000 CDF)" : "(minimum 3,000 CDF)"}
+                  Saisissez le montant {selectedMethod === "crypto" ? "(minimum 5 ,000 CDF)" : "(minimum 1 ,500 CDF)"}
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
