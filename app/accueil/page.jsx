@@ -53,7 +53,7 @@ export default function CriteoWelcomePage() {
   const url = "https://shopmark.fr";
   const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
   const inviteLinkCode = `${url}/invite/${inviteCode}`;
-
+console.log("levels" ,levels)
   // Vérification d'authentification
   useEffect(() => {
     if (!authLoading && !user) {

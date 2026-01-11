@@ -227,9 +227,11 @@ export default function DepotPage() {
 
   const quickAmounts = [30000, 90000, 170000, 245000, 500000];
   const investmentLevels = [
-    { amount: 30000, level: "N1", dailyGain: 1050 },
-    { amount: 90000, level: "N2", dailyGain: 3250 },
-    { amount: 170000, level: "N3", dailyGain: 6100 },
+    { amount: 30000, level: "N1", dailyGain: 600, dailyReturnRate: 0.02 }, // 2% de 30,000 = 600
+    { amount: 90000, level: "N2", dailyGain: 1800, dailyReturnRate: 0.02 }, // 2% de 90,000 = 1,800
+    { amount: 170000, level: "N3", dailyGain: 3400, dailyReturnRate: 0.02 }, // 2% de 170,000 = 3,400
+    { amount: 245000, level: "N4", dailyGain: 6125, dailyReturnRate: 0.025 }, // 2.5% de 245,000 = 6,125
+    { amount: 500000, level: "N5", dailyGain: 12500, dailyReturnRate: 0.025 }, // 2.5% de 500,000 = 12,500
   ];
 
   const calculateFees = () => {
@@ -419,9 +421,7 @@ export default function DepotPage() {
   };
 
   const getRecommendedLevel = () => {
-    return investmentLevels
-      .filter(level => numericAmount >= level.amount)
-      .pop();
+   return  investmentLevels.find(level => level.amount === numericAmount)
   };
 
   const getPhoneNumber = () => {
@@ -504,14 +504,16 @@ export default function DepotPage() {
               </div>
               
               {recommendedLevel && (
-                <div className="mt-4 p-4 bg-white/20 rounded-xl">
-                  <p className="text-sm">
-                    Avec {formatAmount(numericAmount)} CDF, vous pouvez accéder au <strong>{recommendedLevel.level}</strong>
-                    <br />
-                    et générer <strong>{formatAmount(recommendedLevel.dailyGain)} CDF/jour</strong>
-                  </p>
-                </div>
-              )}
+  <div className="mt-4 p-4 bg-white/20 rounded-xl">
+    <p className="text-sm">
+      <strong>Niveau {recommendedLevel.level}</strong> • {(recommendedLevel.dailyReturnRate * 100).toFixed(1)}% journalier
+      <br />
+      Gain quotidien : <strong>{formatAmount(recommendedLevel.dailyGain)} CDF</strong>
+      <br />
+      Gain mensuel : <strong>{formatAmount(recommendedLevel.dailyGain * 30)} CDF</strong>
+    </p>
+  </div>
+)}
             </motion.div>
 
             <motion.div
@@ -584,30 +586,37 @@ export default function DepotPage() {
                   Montants recommandés
                 </h3>
                 <div className="flex flex-wrap gap-3">
-                  {quickAmounts.map((quickAmount) => {
-                    const level = investmentLevels.find(l => l.amount === quickAmount);
-                    return (
-                      <button
-                        key={quickAmount}
-                        onClick={() => handleQuickAmount(quickAmount)}
-                        className={`px-4 py-2 rounded-lg border transition-all text-left ${
-                          numericAmount === quickAmount
-                            ? "bg-green-50 border-green-500 text-green-600 font-semibold"
-                            : "bg-white border-gray-300 text-gray-700 hover:border-green-400 hover:text-green-600"
-                        }`}
-                      >
-                        <div className="font-semibold">{formatAmount(quickAmount)} CDF</div>
-                        {level && (
-                          <div className="text-xs text-gray-500">Niveau {level.level}</div>
-                        )}
-                        {selectedMethod === "crypto" && (
-                          <div className="text-xs text-amber-600">
-                            ≈ {convertCdfToUsdt(quickAmount)} USDT
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                {quickAmounts.map((quickAmount) => {
+  const level = investmentLevels.find(l => l.amount === quickAmount);
+  return (
+    <button
+      key={quickAmount}
+      onClick={() => handleQuickAmount(quickAmount)}
+      className={`px-4 py-2 rounded-lg border transition-all text-left ${
+        numericAmount === quickAmount
+          ? "bg-green-50 border-green-500 text-green-600 font-semibold"
+          : "bg-white border-gray-300 text-gray-700 hover:border-green-400 hover:text-green-600"
+      }`}
+    >
+      <div className="font-semibold">{formatAmount(quickAmount)} CDF</div>
+      {level && (
+        <div className="text-xs text-gray-500">
+          Niveau {level.level} • {(level.dailyReturnRate * 100).toFixed(1)}%
+        </div>
+      )}
+      {level && (
+        <div className="text-xs text-green-600">
+          Gain: {formatAmount(level.dailyGain)} CDF/jour
+        </div>
+      )}
+      {selectedMethod === "crypto" && (
+        <div className="text-xs text-amber-600">
+          ≈ {convertCdfToUsdt(quickAmount)} USDT
+        </div>
+      )}
+    </button>
+  );
+})}
                 </div>
               </div>
 
