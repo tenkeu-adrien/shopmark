@@ -18,12 +18,59 @@ import {
   Wallet // Ajout de l'icône Wallet
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-
+import { useAuth } from '@/contexts/AuthContext';
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+const {user} = useAuth()
+const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!user) {
+        // Si pas d'utilisateur, rediriger vers login
+        router.push('/auth/login');
+        return;
+      }
+
+      try {
+        // Ici, vous devrez récupérer le rôle depuis votre base de données
+        // Par exemple, si vous stockez le rôle dans le document utilisateur
+        // const userDoc = await getDoc(doc(db, 'users', user.uid));
+        // const role = userDoc.data()?.role || 'user';
+        
+        // Pour l'exemple, je vais simuler la récupération
+        // En pratique, remplacez ceci par votre logique de récupération
+        const role = user.role || 'user'; // Supposons que user.role existe
+        
+        setUserRole(role);
+        setIsAdmin(role === 'admin');
+        
+        if (role !== 'admin' && pathname.startsWith('/dashboard')) {
+          // Si l'utilisateur n'est pas admin et tente d'accéder au dashboard
+          router.push('/');
+          return;
+        }
+        
+      } catch (error) {
+        console.error('Erreur vérification rôle:', error);
+        router.push('/');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUserRole();
+  }, [user, pathname, router]);
+
+
+
+
 
   const navigation = [
     {
