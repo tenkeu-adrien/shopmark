@@ -160,8 +160,8 @@ export default function RetraitPage() {
       description: "Transfert mobile Orange",
       processingTime: "Moins de 30min",
       fees: "10%",
-      minAmount: 3000,
-      maxAmount: 5000000,
+      minAmount: 1500,
+      maxAmount: 5000,
       color: "from-orange-500 to-orange-600",
       ussdCode: "*144#",
       agentNumber: dynamicAgents.orangeAgent.number || "0841366703",
@@ -182,8 +182,8 @@ export default function RetraitPage() {
       description: "Transfert mobile Airtel",
       processingTime: "Moins de 30min",
       fees: "10%",
-      minAmount: 3000,
-      maxAmount: 5000000,
+      minAmount: 1500,
+      maxAmount: 5000,
       color: "from-red-500 to-red-600",
       ussdCode: "*501#",
       agentNumber: dynamicAgents.airtelAgent.number || "0986343739",
@@ -205,8 +205,8 @@ export default function RetraitPage() {
       description: "Transfert mobile M-Pesa",
       processingTime: "Moins de 30min",
       fees: "10%",
-      minAmount: 3000,
-      maxAmount: 5000000,
+      minAmount: 1500,
+      maxAmount: 5000,
       color: "from-green-500 to-green-600",
       ussdCode: "*150*60#",
       agentNumber: dynamicAgents.mpesaAgent.number || "0971234567",
@@ -227,8 +227,8 @@ export default function RetraitPage() {
       description: "Transfert en crypto BEP20",
       processingTime: "15-30min",
       fees: "10%",
-      minAmount: 30000,
-      maxAmount: 50000000,
+      minAmount: 5000,
+      maxAmount: 5000,
       color: "from-amber-500 to-amber-600",
       ussdCode: "BEP20",
       agentNumber: "Crypto",
@@ -1008,7 +1008,7 @@ export default function RetraitPage() {
                               <>
                                 <li>• Délai de traitement : 15-30 minutes</li>
                                 <li>• Frais de retrait : 10% du montant retiré</li>
-                                <li>• Minimum : 30,000 CDF pour les retraits crypto</li>
+                                <li>• Minimum : 5,000 CDF pour les retraits crypto</li>
                                 <li>• Utilisez toujours une adresse BEP20 valide</li>
                                 <li>• Vérifiez votre adresse avant de confirmer</li>
                                 <li>• Les transactions crypto sont irréversibles</li>
@@ -1241,7 +1241,7 @@ export default function RetraitPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600">•</span>
                   <span className="text-sm">
-                    Minimum : 3,000 CDF (mobiles) / 30,000 CDF (crypto)
+                    Minimum : 1 ,500 CDF (mobiles) / 5,000 CDF (crypto)
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
