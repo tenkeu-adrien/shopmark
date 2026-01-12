@@ -1,11 +1,14 @@
 // app/default-metadata.js
+import { Metadata } from 'next';
+
 export const defaultMetadata = {
+    metadataBase: new URL('https://shopmark.fr'),
   openGraph: {
     title: 'Investissez et gagnez des gains passifs avec Shopmark',
     description: 'Démarrez votre investissement et générez des revenus quotidiens.',
     images: [
       {
-        url: 'https://shopmark.fr/opengraph-image.jpg',
+        url: '/opengraph-image.jpg',
         width: 1200,
         height: 630,
         alt: 'Aperçu Shopmark',
@@ -18,6 +21,6 @@ export const defaultMetadata = {
     card: 'summary_large_image',
     title: 'Investissez et gagnez des gains passifs avec Shopmark',
     description: 'Démarrez votre investissement et générez des revenus quotidiens.',
-    images: ['https://shopmark.fr/opengraph-image.jpg'],
+    images: ['/opengraph-image.jpg'],
   },
 };

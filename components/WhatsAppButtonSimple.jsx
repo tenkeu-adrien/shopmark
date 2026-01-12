@@ -10,7 +10,7 @@ export default function WhatsAppButtonSimple() {
   const message = "Bonjour, je souhaite obtenir plus d'informations.";
   
   const handleClick = () => {
-    const whatsappUrl = `https://chat.whatsapp.com/HgpAic0cyjEAz8unk3jaOn`;
+    const whatsappUrl = `https://chat.whatsapp.com/IkU5nnbg5rG0FDNcRWhnX4`;
     window.open(whatsappUrl, "_blank");
   };
 
