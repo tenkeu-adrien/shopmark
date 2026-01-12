@@ -23,7 +23,7 @@ export const metadata= {
     description: 'Démarrez votre investissement et générez des revenus quotidiens.',
     images: [
       {
-        url: '/shopmarkk.jpeg', // Chemin relatif vers votre image dans `/public`
+        url: 'https://shopmark.fr/shopmarkk.jpeg', // Chemin relatif vers votre image dans `/public`
         width: 1200,
         height: 630,
         alt: 'Aperçu Shopmark',
