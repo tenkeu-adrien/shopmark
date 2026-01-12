@@ -5,7 +5,7 @@ export const defaultMetadata = {
     description: 'Démarrez votre investissement et générez des revenus quotidiens.',
     images: [
       {
-        url: 'https://shopmark.fr/shopmarkk.jpeg',
+        url: 'https://shopmark.fr/opengraph-image.jpg',
         width: 1200,
         height: 630,
         alt: 'Aperçu Shopmark',
@@ -18,6 +18,6 @@ export const defaultMetadata = {
     card: 'summary_large_image',
     title: 'Investissez et gagnez des gains passifs avec Shopmark',
     description: 'Démarrez votre investissement et générez des revenus quotidiens.',
-    images: ['https://shopmark.fr/shopmarkk.jpeg'],
+    images: ['https://shopmark.fr/opengraph-image.jpg'],
   },
 };
