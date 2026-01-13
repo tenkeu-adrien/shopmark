@@ -92,7 +92,7 @@ export default function InstallPage() {
         </div>
 
         {/* Bouton d'installation natif (Android/Chrome/Windows) */}
-        {showInstallButton && !isIOS && (
+        {/* {showInstallButton && !isIOS && ( */}
           <button
             onClick={handleInstallClick}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-5 rounded-2xl font-bold text-lg shadow-lg mb-8 flex items-center justify-center gap-3 hover:brightness-105 transition"
@@ -100,7 +100,7 @@ export default function InstallPage() {
             <ArrowDownToLine className="w-6 h-6" />
             Installer l'application maintenant
           </button>
-        )}
+        {/* )} */}
 
         {/* Instructions pour iPhone/iPad (Safari) */}
         {isIOS && (
