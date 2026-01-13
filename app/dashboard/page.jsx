@@ -102,9 +102,9 @@ export default function DashboardPage() {
     };
 
     loadDashboardData();
-    
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
+
+    // const interval = setInterval(loadDashboardData, 9000000000000000000000000000000000000000000000000000000000);
+    // return () => clearInterval(interval);
   }, []);
 
   const formatAmount = (amount) => {
