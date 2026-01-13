@@ -1,14 +1,22 @@
-import { defaultCache } from '@serwist/next/worker';
-import { Serwist } from '@serwist/sw';
+// src/sw.js
+import { installSerwist, defaultCache } from '@serwist/sw';
 
-
-const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
+// Installer Serwist avec les options modernes
+installSerwist({
+  precacheEntries: self.__WB_MANIFEST, // fichiers injectés automatiquement par @serwist/next
+  skipWaiting: true,                    // remplace la version précédente
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: defaultCache,         // cache par défaut fourni par Serwist
 });
 
-// Ton propre cache offline par exemple
-serwist.addEventListeners();
+// Exemple : ajouter des écouteurs pour le offline (optionnel)
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request);
+      })
+    );
+  }
+});

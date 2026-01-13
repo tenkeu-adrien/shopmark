@@ -1,5 +1,4 @@
 // app/default-metadata.js
-import { Metadata } from 'next';
 
 export const defaultMetadata = {
     metadataBase: new URL('https://shopmark.fr'),
