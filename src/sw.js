@@ -1,23 +1,23 @@
-// src/sw.js
+// src/sw.js    ← corrige comme ceci :
+
 import { installSerwist, defaultCache } from '@serwist/sw';
 
-// Installer Serwist avec les options modernes
 installSerwist({
-  precacheEntries: self.__WB_MANIFEST, // injecté automatiquement par @serwist/next
+  precacheEntries: self.__SW_MANIFEST,   // ← ICI le changement important !
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,         // cache par défaut fourni par Serwist
-  disableDevLogs: true,                 // supprime les logs en dev
+  runtimeCaching: defaultCache,
+  disableDevLogs: true,
 });
 
-// Gestion simple de l'offline
+// Le reste peut rester pareil
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        return cachedResponse || fetch(event.request);
-      }).catch(() => caches.match('/offline')) // fallback offline si nécessaire
+      caches.match(event.request)
+        .then((cachedResponse) => cachedResponse || fetch(event.request))
+        .catch(() => caches.match('/offline'))
     );
   }
 });
