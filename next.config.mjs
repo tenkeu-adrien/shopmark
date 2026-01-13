@@ -2,7 +2,7 @@
 import withSerwistInit from '@serwist/next';
 
 const withSerwist = withSerwistInit({
-  swSrc: 'src/sw.ts',           // ← tu peux même passer à .ts si tu veux du typage
+  swSrc: 'src/sw.js',           // ← tu peux même passer à .ts si tu veux du typage
   swDest: 'public/sw.js',
   cacheOnNavigation: true,
   additionalPrecacheEntries: [
