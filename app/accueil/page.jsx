@@ -37,6 +37,7 @@ import {
 import { db } from "@/lib/firebase";
 import { firestoreService } from "@/lib/initCollections";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function CriteoWelcomePage() { 
   const { user, loading: authLoading } = useAuth();
@@ -722,8 +723,9 @@ const handleParticipate = async (level) => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="flex flex-row gap-4 mb-4 h-30"
         >
-          <a
+          <Link
             href="/DepotPage"
+            prefetch={true}
             className="group bg-white text-gray-900 rounded-xl p-4 flex-1 flex flex-col items-center justify-center transition-all duration-300 hover:bg-amber-50 hover:scale-[1.02] hover:shadow-2xl hover:shadow-amber-500/20 active:scale-95 min-w-0"
           >
             <div className="relative mb-4">
@@ -732,10 +734,11 @@ const handleParticipate = async (level) => {
             </div>
             <span className="text-[10px] font-semibold mb-2 text-center">Recharge en espèces</span>
             <p className="text-gray-600 text-[15px] text-center">Ajoutez des fonds à votre compte</p>
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/RetraitPage"
+            prefetch={true}
             className="group bg-white text-gray-900 rounded-xl flex-1 flex flex-col items-center justify-center transition-all duration-300 hover:bg-amber-50 hover:scale-[1.02] hover:shadow-2xl hover:shadow-amber-500/20 active:scale-95 p-4 min-w-0"
           >
             <div className="relative mb-4">
@@ -744,7 +747,7 @@ const handleParticipate = async (level) => {
             </div>
             <span className="text-[10px] font-semibold mb-2 text-center">Retrait en espèces</span>
             <p className="text-gray-600 text-[10px] text-center">Retirez vos gains facilement</p>
-          </a>
+          </Link>
         </motion.div>
 
         {/* Soldes */}

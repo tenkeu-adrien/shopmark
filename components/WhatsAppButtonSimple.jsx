@@ -1,18 +1,23 @@
-// components/WhatsAppButtonSimple.tsx
 "use client";
 
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
+import useWhatsappConfig from "@/hooks/useWhatsappConfig";
 
 export default function WhatsAppButtonSimple() {
-  const phoneNumber = "+243XXXXXXXXX"; // Votre numéro
-  const message = "Bonjour, je souhaite obtenir plus d'informations.";
+  const { config, loading } = useWhatsappConfig();
   
   const handleClick = () => {
-    const whatsappUrl = `https://chat.whatsapp.com/IkU5nnbg5rG0FDNcRWhnX4`;
+    if (!config) return;
+    
+    const whatsappUrl = config.groupLink;
     window.open(whatsappUrl, "_blank");
   };
+
+  if (loading || !config) {
+    return null; // Ne rien afficher pendant le chargement
+  }
 
   return (
     <motion.div
@@ -25,11 +30,16 @@ export default function WhatsAppButtonSimple() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={handleClick}
-        className="bg-gradient-to-r  cursor-pointer from-green-500 to-green-600 text-white  rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 group relative mb-35"
+        className="bg-gradient-to-r cursor-pointer from-green-500 to-green-600 text-white rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 group relative mb-35"
       >
-
-        <Image src="/whatsapp.png"  width={60} height={60} placeholder="blur" blurDataURL="data:image/png;base64,..." alt="whatsapp"/>
-        {/* <MessageCircle className="w-6 h-6" /> */}
+        <Image 
+          src="/whatsapp.png"  
+          width={60} 
+          height={60} 
+          placeholder="blur" 
+          blurDataURL="data:image/png;base64,..." 
+          alt="whatsapp"
+        />
         
         {/* Tooltip */}
         <div className="absolute -top-12 right-0 bg-gray-900 text-white text-xs py-2 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">

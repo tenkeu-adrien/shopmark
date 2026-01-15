@@ -317,19 +317,7 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
     loadFilleulsData();
   };
 
-  const getBonusColor = (montant) => {
-    if (montant > 50000) return 'text-purple-600';
-    if (montant > 20000) return 'text-green-600';
-    if (montant > 5000) return 'text-blue-600';
-    return 'text-gray-600';
-  };
-
-  const getBonusBgColor = (montant) => {
-    if (montant > 50000) return 'bg-purple-50 border-purple-200';
-    if (montant > 20000) return 'bg-green-50 border-green-200';
-    if (montant > 5000) return 'bg-blue-50 border-blue-200';
-    return 'bg-gray-50 border-gray-200';
-  };
+  ;
 
   const getNiveauColor = (niveau) => {
     switch(niveau) {

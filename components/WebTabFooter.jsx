@@ -1,3 +1,4 @@
+import Link from "next/link";
 
 export default function WebTabFooter() {
 
@@ -33,10 +34,11 @@ export default function WebTabFooter() {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 rounded-tl-2xl rounded-tr-2xl">
       <div className="grid grid-cols-4">
         {tabs.map((tab) => (
-          <a
+          <Link
             key={tab.id}
             href={tab.href}
             className="py-3 flex flex-col items-center hover:bg-amber-50 transition-colors duration-200"
+            prefetch={true}
           >
             {/* Icône */}
             <img
@@ -49,7 +51,7 @@ export default function WebTabFooter() {
             <span className="text-xs text-amber-600 font-medium">
               {tab.label}
             </span>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

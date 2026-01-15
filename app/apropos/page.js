@@ -2,6 +2,7 @@ import BackButton from '@/components/BackButton';
 import Footer from '@/components/Footer';
 import Head from 'next/head';
 import Image from 'next/image';
+import Link from 'next/link';
 import { FaEnvelope, FaHeadset, FaExclamationTriangle } from 'react-icons/fa';
 import { IoMdArrowBack } from 'react-icons/io';
 
@@ -36,7 +37,7 @@ const ContactPage = () => {
                 </p>
                 <div className="flex items-center bgj-white bg-opacity-20 rounded-lg px-4 py-2">
                   <FaEnvelope className="mr-2 text-orange-600" />
-                  <a hreef="mailto:contact@devagencyweb.online" className='cursor-pointer' target='_blank'>contact@devagencyweb.online</a>
+                  <Link hreef="mailto:contact@devagencyweb.online" className='cursor-pointer' target='_blank'>contact@devagencyweb.online</Link>
                 </div>
               </div>
 

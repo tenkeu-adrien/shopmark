@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Share, Plus, X, Smartphone, ArrowDownToLine } from "lucide-react";
+import Link from "next/link";
 
 export default function InstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -140,9 +141,9 @@ export default function InstallPage() {
         {/* Lien alternatif */}
         <div className="text-center text-sm text-gray-500">
           Ou accédez directement à l'application : <br />
-          <a href="/" className="text-amber-600 font-medium underline">
+          <Link  prefetch={true} href="/" className="text-amber-600 font-medium underline">
             https://shopmark.fr
-          </a>
+          </Link>
         </div>
       </div>
     </div>

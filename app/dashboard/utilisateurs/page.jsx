@@ -1550,6 +1550,7 @@ import Link from 'next/link';
 import DashboardCard from '@/components/DashboardCard';
 import Drawer from '@/components/Drawer';
 import { auth, db } from '@/lib/firebase';
+import { MessageCircle } from "lucide-react";
 import { 
   collection, 
   getDocs, 
@@ -1579,7 +1580,10 @@ export default function UtilisateursPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  
+  // Dans la section des useState, ajoutez :
+const [eligibleInvestments, setEligibleInvestments] = useState([]);
+const [selectedInvestments, setSelectedInvestments] = useState([]);
+const [selectionMode, setSelectionMode] = useState(false);
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [balanceDrawerOpen, setBalanceDrawerOpen] = useState(false);
@@ -1601,6 +1605,57 @@ export default function UtilisateursPage() {
   const [lastCalculation, setLastCalculation] = useState(null);
   const [calculationResults, setCalculationResults] = useState(null);
   const [calculationDrawerOpen, setCalculationDrawerOpen] = useState(false);
+// Dans la section des useState, ajoutez :
+const [whatsappConfig, setWhatsappConfig] = useState({
+  phoneNumber: "+243XXXXXXXXX",
+  message: "Bonjour, je souhaite obtenir plus d'informations.",
+  groupLink: "https://chat.whatsapp.com/Ia3LZeKx2BI9kBhQogzQi8"
+});
+const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false);
+const [whatsappLoading, setWhatsappLoading] = useState(false);
+
+
+// Ajoutez cette fonction après les autres fonctions de gestion
+const loadWhatsappConfig = async () => {
+  try {
+    const configRef = doc(db, 'admin_config', 'whatsapp_settings');
+    const configSnap = await getDoc(configRef);
+    
+    if (configSnap.exists()) {
+      setWhatsappConfig(configSnap.data());
+    }
+  } catch (error) {
+    console.error('Erreur chargement config WhatsApp:', error);
+  }
+};
+
+const saveWhatsappConfig = async () => {
+  try {
+    setWhatsappLoading(true);
+    const configRef = doc(db, 'admin_config', 'whatsapp_settings');
+    
+    await setDoc(configRef, {
+      ...whatsappConfig,
+      updatedAt: serverTimestamp(),
+      updatedBy: auth.currentUser?.uid
+    });
+    
+    alert('Configuration WhatsApp mise à jour avec succès !');
+    setWhatsappDrawerOpen(false);
+  } catch (error) {
+    console.error('Erreur sauvegarde config WhatsApp:', error);
+    alert('Erreur lors de la sauvegarde');
+  } finally {
+    setWhatsappLoading(false);
+  }
+};
+
+// Appeler loadWhatsappConfig dans useEffect
+useEffect(() => {
+  loadUsers();
+  loadLastCalculation();
+  loadWhatsappConfig(); // AJOUTER CETTE LIGNE
+}, []);
 
 
     const [editForm, setEditForm] = useState({
@@ -1756,313 +1811,367 @@ export default function UtilisateursPage() {
     }
   };
 
-  // NOUVEAU: Fonction principale pour calculer les gains journaliers
-  const calculateDailyGains = async () => {
-    const currentAdmin = auth.currentUser;
-    if (!currentAdmin) {
-      alert('Vous devez être connecté en tant qu\'administrateur');
+// REMPLACER la fonction calculateDailyGains actuelle par celle-ci :
+const calculateDailyGains = async () => {
+  const currentAdmin = auth.currentUser;
+  if (!currentAdmin) {
+    alert('Vous devez être connecté en tant qu\'administrateur');
+    return;
+  }
+
+  // Vérifier si un calcul a déjà été fait aujourd'hui
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (lastCalculation && lastCalculation.timestamp >= today) {
+    if (!confirm('Un calcul a déjà été effectué aujourd\'hui. Voulez-vous vraiment relancer le calcul ?')) {
       return;
     }
+  }
 
-    // Vérifier si un calcul a déjà été fait aujourd'hui
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (lastCalculation && lastCalculation.timestamp >= today) {
-      if (!confirm('Un calcul a déjà été effectué aujourd\'hui. Voulez-vous vraiment relancer le calcul ?')) {
-        return;
-      }
-    }
-
-    if (!confirm(`Êtes-vous sûr de vouloir calculer les gains journaliers ?
-    
+  if (!confirm(`Êtes-vous sûr de vouloir calculer les gains journaliers ?
+  
 ⚠️ Cette action :
-• Affectera tous les utilisateurs avec investissements actifs
+• Récupérera tous les investissements actifs
+• Vous permettra de sélectionner manuellement les utilisateurs
 • Ajoutera les gains aux soldes disponibles
 • Ne peut être annulée
 
 Cliquez sur OK pour continuer.`)) {
-      return;
+    return;
+  }
+
+  try {
+    setCalculatingDailyGains(true);
+    setSelectionMode(true);
+    setCalculationProgress({
+      current: 0,
+      total: 0,
+      processed: 0,
+      errors: 0,
+      totalAmount: 0
+    });
+
+    // 1. Récupérer TOUS les investissements actifs
+    console.log('📊 Récupération des investissements actifs...');
+    const activeInvestmentsQuery = query(
+      collection(db, 'user_levels'),
+      where('status', '==', 'active')
+    );
+    
+    const investmentsSnapshot = await getDocs(activeInvestmentsQuery);
+    const allInvestments = investmentsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    console.log(`📈 ${allInvestments.length} investissements actifs trouvés`);
+    
+    // 2. Filtrer par date du dernier gain
+    const filteredInvestments = [];
+    const skippedUsers = [];
+    
+    for (const investment of allInvestments) {
+      try {
+        // Vérifier la date du dernier gain
+        const walletRef = doc(db, 'wallets', investment.userId);
+        const walletSnap = await getDoc(walletRef);
+        
+        if (!walletSnap.exists()) {
+          skippedUsers.push({
+            userId: investment.userId,
+            reason: 'Portefeuille non trouvé',
+            investment
+          });
+          continue;
+        }
+        
+        const walletData = walletSnap.data();
+        const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
+        
+        // Vérifier si le gain a déjà été calculé aujourd'hui
+        const alreadyProcessedToday = lastGainDate && 
+          lastGainDate.getDate() === today.getDate() &&
+          lastGainDate.getMonth() === today.getMonth() &&
+          lastGainDate.getFullYear() === today.getFullYear();
+        
+        if (alreadyProcessedToday) {
+          skippedUsers.push({
+            userId: investment.userId,
+            reason: 'Déjà payé aujourd\'hui',
+            lastGainDate,
+            investment
+          });
+          continue;
+        }
+        
+        // Vérifier si l'investissement est toujours valide
+        const endDate = investment.scheduledEndDate?.toDate?.();
+        if (endDate && endDate < today) {
+          skippedUsers.push({
+            userId: investment.userId,
+            reason: 'Investissement terminé',
+            endDate,
+            investment
+          });
+          continue;
+        }
+        
+        filteredInvestments.push(investment);
+      } catch (error) {
+        console.error(`Erreur vérification utilisateur ${investment.userId}:`, error);
+        skippedUsers.push({
+          userId: investment.userId,
+          reason: 'Erreur de vérification',
+          error: error.message,
+          investment
+        });
+      }
     }
 
-    try {
-      setCalculatingDailyGains(true);
-      setCalculationProgress({
-        current: 0,
-        total: 0,
-        processed: 0,
-        errors: 0,
-        totalAmount: 0
-      });
+    console.log(`✅ ${filteredInvestments.length} investissements éligibles`);
+    console.log(`⏭️ ${skippedUsers.length} investissements ignorés`);
 
-      const startTime = Date.now();
-      
-      // 1. Récupérer TOUS les investissements actifs
-      console.log('📊 Récupération des investissements actifs...');
-      const activeInvestmentsQuery = query(
-        collection(db, 'user_levels'),
-        where('status', '==', 'active')
-      );
-      
-      const investmentsSnapshot = await getDocs(activeInvestmentsQuery);
-      const activeInvestments = investmentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+    // Stocker les investissements éligibles pour la sélection manuelle
+    setEligibleInvestments(filteredInvestments);
+    // Sélectionner tous par défaut
+    setSelectedInvestments(filteredInvestments.map(inv => inv.id));
+    
+    // Afficher le drawer de sélection
+    setSelectionMode(true);
 
-      console.log(`📈 ${activeInvestments.length} investissements actifs trouvés`);
+  } catch (error) {
+    console.error('Erreur préparation calcul gains journaliers:', error);
+    alert(`❌ Erreur lors de la préparation du calcul : ${error.message}`);
+    setCalculatingDailyGains(false);
+  }
+};
+
+// 1.3 Ajouter la fonction pour exécuter le calcul avec sélection
+const executeDailyGainsCalculation = async (selectedInvestmentIds) => {
+  const currentAdmin = auth.currentUser;
+  if (!currentAdmin) return;
+
+  try {
+    setCalculatingDailyGains(true);
+    setSelectionMode(false);
+    const startTime = Date.now();
+    
+    // Filtrer les investissements sélectionnés
+    const investmentsToProcess = eligibleInvestments.filter(inv => 
+      selectedInvestmentIds.includes(inv.id)
+    );
+
+    setCalculationProgress({
+      current: 0,
+      total: investmentsToProcess.length,
+      processed: 0,
+      errors: 0,
+      totalAmount: 0
+    });
+
+    const today = new Date();
+    const results = {
+      success: [],
+      failed: [],
+      totalAmount: 0
+    };
+
+    // Traiter les investissements sélectionnés
+    for (let i = 0; i < investmentsToProcess.length; i++) {
+      const investment = investmentsToProcess[i];
       
-      // 2. Filtrer par date du dernier gain
-      const eligibleInvestments = [];
-      const skippedUsers = [];
-      
-      for (const investment of activeInvestments) {
-        try {
-          // Vérifier la date du dernier gain
+      try {
+        setCalculationProgress(prev => ({
+          ...prev,
+          current: i + 1
+        }));
+
+        // Calculer le gain
+        const dailyGain = investment.dailyGain || 
+          (investment.investedAmount * (investment.dailyReturnRate || 0));
+        
+        if (!dailyGain || dailyGain <= 0) {
+          results.failed.push({
+            userId: investment.userId,
+            investmentId: investment.id,
+            reason: 'Gain journalier invalide ou nul',
+            dailyGain,
+            investment
+          });
+          setCalculationProgress(prev => ({ ...prev, errors: prev.errors + 1 }));
+          continue;
+        }
+
+        // Utiliser une transaction Firestore
+        await runTransaction(db, async (transaction) => {
           const walletRef = doc(db, 'wallets', investment.userId);
-          const walletSnap = await getDoc(walletRef);
+          const walletSnap = await transaction.get(walletRef);
           
           if (!walletSnap.exists()) {
-            skippedUsers.push({
-              userId: investment.userId,
-              reason: 'Portefeuille non trouvé',
-              investment
-            });
-            continue;
+            throw new Error('Portefeuille non trouvé');
           }
-          
+
           const walletData = walletSnap.data();
-          const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
           
-          // Vérifier si le gain a déjà été calculé aujourd'hui
-          const alreadyProcessedToday = lastGainDate && 
+          // Vérifier à nouveau la date du dernier gain
+          const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
+          const alreadyProcessed = lastGainDate && 
             lastGainDate.getDate() === today.getDate() &&
             lastGainDate.getMonth() === today.getMonth() &&
             lastGainDate.getFullYear() === today.getFullYear();
           
-          if (alreadyProcessedToday) {
-            skippedUsers.push({
-              userId: investment.userId,
-              reason: 'Déjà payé aujourd\'hui',
-              lastGainDate,
-              investment
-            });
-            continue;
+          if (alreadyProcessed) {
+            throw new Error('Déjà payé aujourd\'hui');
           }
-          
-          // Vérifier si l'investissement est toujours valide
-          const endDate = investment.scheduledEndDate?.toDate?.();
-          if (endDate && endDate < today) {
-            skippedUsers.push({
-              userId: investment.userId,
-              reason: 'Investissement terminé',
-              endDate,
-              investment
-            });
-            continue;
-          }
-          
-          eligibleInvestments.push(investment);
-        } catch (error) {
-          console.error(`Erreur vérification utilisateur ${investment.userId}:`, error);
-          skippedUsers.push({
-            userId: investment.userId,
-            reason: 'Erreur de vérification',
-            error: error.message,
-            investment
+
+          // Mettre à jour le wallet
+          transaction.update(walletRef, {
+            'balances.wallet.amount': increment(dailyGain),
+            'balances.wallet.lastUpdated': serverTimestamp(),
+            'stats.totalEarned': increment(dailyGain),
+            'stats.totalDailyGains': increment(dailyGain),
+            'stats.lastDailyGainAt': serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            version: increment(1)
           });
-        }
-      }
 
-      console.log(`✅ ${eligibleInvestments.length} investissements éligibles`);
-      console.log(`⏭️ ${skippedUsers.length} investissements ignorés`);
+          // Créer la transaction
+          const transactionRef = doc(collection(db, 'transactions'));
+          transaction.set(transactionRef, {
+            transactionId: `GAIN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId: investment.userId,
+            userEmail: investment.userEmail,
+            type: 'daily_gain',
+            amount: dailyGain,
+            currency: 'CDF',
+            status: 'completed',
+            description: `Gain journalier - ${investment.levelName || 'Niveau actif'}`,
+            metadata: {
+              investmentId: investment.id,
+              levelId: investment.levelId,
+              levelName: investment.levelName,
+              investedAmount: investment.investedAmount,
+              dailyReturnRate: investment.dailyReturnRate,
+              dailyGain: investment.dailyGain,
+              calculationBatch: startTime.toString(),
+              adminId: currentAdmin.uid,
+              adminName: currentAdmin.displayName || currentAdmin.email
+            },
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        });
 
-      setCalculationProgress(prev => ({
-        ...prev,
-        total: eligibleInvestments.length
-      }));
-
-      // 3. Traiter les investissements éligibles par lots
-      const batchSize = 500;
-      const results = {
-        success: [],
-        failed: [],
-        totalAmount: 0
-      };
-
-      for (let i = 0; i < eligibleInvestments.length; i += batchSize) {
-        const batch = eligibleInvestments.slice(i, i + batchSize);
+        results.success.push({
+          userId: investment.userId,
+          investmentId: investment.id,
+          dailyGain,
+          investment
+        });
         
-        for (const investment of batch) {
-          try {
-            setCalculationProgress(prev => ({
-              ...prev,
-              current: i + batch.indexOf(investment) + 1
-            }));
+        results.totalAmount += dailyGain;
+        setCalculationProgress(prev => ({
+          ...prev,
+          processed: prev.processed + 1,
+          totalAmount: prev.totalAmount + dailyGain
+        }));
 
-            // Calculer le gain
-            const dailyGain = investment.dailyGain || 
-              (investment.investedAmount * (investment.dailyReturnRate || 0));
-            
-            if (!dailyGain || dailyGain <= 0) {
-              results.failed.push({
-                userId: investment.userId,
-                investmentId: investment.id,
-                reason: 'Gain journalier invalide ou nul',
-                dailyGain,
-                investment
-              });
-              setCalculationProgress(prev => ({ ...prev, errors: prev.errors + 1 }));
-              continue;
-            }
-
-            // Utiliser une transaction Firestore pour garantir l'intégrité
-            await runTransaction(db, async (transaction) => {
-              // Récupérer le wallet
-              const walletRef = doc(db, 'wallets', investment.userId);
-              const walletSnap = await transaction.get(walletRef);
-              
-              if (!walletSnap.exists()) {
-                throw new Error('Portefeuille non trouvé');
-              }
-
-              const walletData = walletSnap.data();
-              
-              // Vérifier à nouveau la date du dernier gain (dans la transaction)
-              const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
-              const alreadyProcessed = lastGainDate && 
-                lastGainDate.getDate() === today.getDate() &&
-                lastGainDate.getMonth() === today.getMonth() &&
-                lastGainDate.getFullYear() === today.getFullYear();
-              
-              if (alreadyProcessed) {
-                throw new Error('Déjà payé aujourd\'hui');
-              }
-
-              // Mettre à jour le wallet
-              transaction.update(walletRef, {
-                'balances.wallet.amount': increment(dailyGain),
-                'balances.wallet.lastUpdated': serverTimestamp(),
-                'stats.totalEarned': increment(dailyGain),
-                'stats.totalDailyGains': increment(dailyGain),
-                'stats.lastDailyGainAt': serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                version: increment(1)
-              });
-
-              // Créer la transaction
-              const transactionRef = doc(collection(db, 'transactions'));
-              transaction.set(transactionRef, {
-                transactionId: `GAIN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                userId: investment.userId,
-                userEmail: investment.userEmail,
-                type: 'daily_gain',
-                amount: dailyGain,
-                currency: 'CDF',
-                status: 'completed',
-                description: `Gain journalier - ${investment.levelName || 'Niveau actif'}`,
-                metadata: {
-                  investmentId: investment.id,
-                  levelId: investment.levelId,
-                  levelName: investment.levelName,
-                  investedAmount: investment.investedAmount,
-                  dailyReturnRate: investment.dailyReturnRate,
-                  dailyGain: investment.dailyGain,
-                  calculationBatch: startTime.toString(),
-                  adminId: currentAdmin.uid,
-                  adminName: currentAdmin.displayName || currentAdmin.email
-                },
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-              });
-            });
-
-            results.success.push({
-              userId: investment.userId,
-              investmentId: investment.id,
-              dailyGain,
-              investment
-            });
-            
-            results.totalAmount += dailyGain;
-            setCalculationProgress(prev => ({
-              ...prev,
-              processed: prev.processed + 1,
-              totalAmount: prev.totalAmount + dailyGain
-            }));
-
-          } catch (error) {
-            console.error(`Erreur traitement utilisateur ${investment.userId}:`, error);
-            results.failed.push({
-              userId: investment.userId,
-              investmentId: investment.id,
-              reason: error.message,
-              error,
-              investment
-            });
-            setCalculationProgress(prev => ({ ...prev, errors: prev.errors + 1 }));
-          }
-        }
+      } catch (error) {
+        console.error(`Erreur traitement utilisateur ${investment.userId}:`, error);
+        results.failed.push({
+          userId: investment.userId,
+          investmentId: investment.id,
+          reason: error.message,
+          error,
+          investment
+        });
+        setCalculationProgress(prev => ({ ...prev, errors: prev.errors + 1 }));
       }
+    }
 
-      // 4. Enregistrer le calcul dans les logs admin
-      const calculationRef = doc(db, 'admin_logs', 'dailyGainsCalculation');
-      const calculationData = {
-        date: today.toISOString().split('T')[0],
-        timestamp: serverTimestamp(),
-        adminId: currentAdmin.uid,
-        adminName: currentAdmin.displayName || currentAdmin.email,
-        usersProcessed: results.success.length,
-        totalAmountDistributed: results.totalAmount,
-        errors: results.failed.length,
-        processingTime: Date.now() - startTime,
-        status: 'completed',
-        details: {
-          totalInvestments: activeInvestments.length,
-          eligibleInvestments: eligibleInvestments.length,
-          skippedInvestments: skippedUsers.length,
-          successCount: results.success.length,
-          failedCount: results.failed.length,
-          skippedDetails: skippedUsers.slice(0, 50) // Limiter pour éviter un document trop gros
-        }
-      };
+    // Enregistrer le calcul dans les logs admin
+    const calculationRef = doc(db, 'admin_logs', 'dailyGainsCalculation');
+    const calculationData = {
+      date: today.toISOString().split('T')[0],
+      timestamp: serverTimestamp(),
+      adminId: currentAdmin.uid,
+      adminName: currentAdmin.displayName || currentAdmin.email,
+      usersProcessed: results.success.length,
+      totalAmountDistributed: results.totalAmount,
+      errors: results.failed.length,
+      processingTime: Date.now() - startTime,
+      status: 'completed',
+      details: {
+        totalInvestments: eligibleInvestments.length,
+        selectedInvestments: investmentsToProcess.length,
+        successCount: results.success.length,
+        failedCount: results.failed.length
+      }
+    };
 
-      await setDoc(calculationRef, calculationData, { merge: true });
-      
-      // 5. Mettre à jour l'état local
-      setLastCalculation({
-        id: 'dailyGainsCalculation',
-        ...calculationData,
-        timestamp: new Date()
-      });
-      
-      setCalculationResults({
-        ...results,
-        skippedUsers,
-        processingTime: Date.now() - startTime,
-        calculationDate: new Date()
-      });
+    await setDoc(calculationRef, calculationData, { merge: true });
+    
+    // Mettre à jour l'état local
+    setLastCalculation({
+      id: 'dailyGainsCalculation',
+      ...calculationData,
+      timestamp: new Date()
+    });
+    
+    setCalculationResults({
+      ...results,
+      processingTime: Date.now() - startTime,
+      calculationDate: new Date()
+    });
 
-      // 6. Afficher les résultats
-      alert(`✅ Calcul des gains journaliers terminé !
+    // Afficher les résultats
+    alert(`✅ Calcul des gains journaliers terminé !
 
 📊 Résultats :
 • Utilisateurs traités : ${results.success.length}
 • Gains distribués : ${formatAmount(results.totalAmount)} CDF
 • Échecs : ${results.failed.length}
-• Temps de traitement : ${Math.round((Date.now() - startTime) / 1000)} secondes
+• Temps de traitement : ${Math.round((Date.now() - startTime) / 1000)} secondes`);
 
-📋 Détails disponibles dans le rapport.`);
+    setCalculationDrawerOpen(true);
 
-      setCalculationDrawerOpen(true);
+  } catch (error) {
+    console.error('Erreur calcul gains journaliers:', error);
+    alert(`❌ Erreur lors du calcul des gains : ${error.message}`);
+  } finally {
+    setCalculatingDailyGains(false);
+    setEligibleInvestments([]);
+    setSelectedInvestments([]);
+  }
+};
 
-    } catch (error) {
-      console.error('Erreur calcul gains journaliers:', error);
-      alert(`❌ Erreur lors du calcul des gains : ${error.message}`);
-    } finally {
-      setCalculatingDailyGains(false);
-    }
-  };
+// 1.4 Ajouter la fonction pour gérer la sélection
+const toggleInvestmentSelection = (investmentId) => {
+  setSelectedInvestments(prev => 
+    prev.includes(investmentId) 
+      ? prev.filter(id => id !== investmentId)
+      : [...prev, investmentId]
+  );
+};
+
+const toggleSelectAllInvestments = () => {
+  if (selectedInvestments.length === eligibleInvestments.length) {
+    setSelectedInvestments([]);
+  } else {
+    setSelectedInvestments(eligibleInvestments.map(inv => inv.id));
+  }
+};
+
+
+
+
+
+
+
+
+
+
 
   // NOUVEAU: Fonction pour générer un rapport CSV
   const generateReportCSV = (results) => {
@@ -2581,7 +2690,17 @@ Cliquez sur OK pour continuer.`)) {
               </>
             )}
           </button>
-          
+           <button 
+    onClick={() => setWhatsappDrawerOpen(true)}
+    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:from-green-600 hover:to-teal-700 text-sm sm:text-base"
+  >
+    <MessageCircle className="w-4 h-4" />
+    <span>Modifier WhatsApp</span>
+  </button>
+
+
+
+
           <button 
             onClick={loadUsers}
             disabled={actionLoading}
@@ -2590,13 +2709,13 @@ Cliquez sur OK pour continuer.`)) {
             <RefreshCw className="w-4 h-4" />
             <span className="hidden sm:inline">Actualiser</span>
           </button>
-          <Link 
+          {/* <Link 
             href="/dashboard/utilisateurs/nouveau"
             className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base"
           >
             <UserPlus className="w-4 h-4" />
             <span>Nouvel utilisateur</span>
-          </Link>
+          </Link> */}
         </div>
       </div>
 
@@ -3618,6 +3737,231 @@ Cliquez sur OK pour continuer.`)) {
           </div>
         )}
       </Drawer>
+
+
+      {/* AJOUTER ce Drawer après le Drawer des résultats du calcul */}
+<Drawer
+  isOpen={selectionMode}
+  onClose={() => {
+    setSelectionMode(false);
+    setCalculatingDailyGains(false);
+  }}
+  title="Sélection des utilisateurs pour les gains"
+  size="xl"
+>
+  <div className="space-y-6">
+    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-blue-900 mb-1">
+            Sélection manuelle des gains journaliers
+          </h3>
+          <p className="text-sm text-blue-700">
+            {eligibleInvestments.length} investissements éligibles trouvés
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleSelectAllInvestments}
+            className="px-3 py-1.5 bg-white border border-blue-300 text-blue-700 rounded-lg text-sm hover:bg-blue-50"
+          >
+            {selectedInvestments.length === eligibleInvestments.length 
+              ? 'Tout désélectionner' 
+              : 'Tout sélectionner'}
+          </button>
+          <span className="text-sm font-medium text-blue-900">
+            {selectedInvestments.length}/{eligibleInvestments.length} sélectionnés
+          </span>
+        </div>
+      </div>
+      
+      {selectedInvestments.length > 0 && (
+        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-800">
+                Gains totaux estimés
+              </p>
+              <p className="text-2xl font-bold text-green-700">
+                {formatAmount(
+                  eligibleInvestments
+                    .filter(inv => selectedInvestments.includes(inv.id))
+                    .reduce((total, inv) => total + (inv.dailyGain || (inv.investedAmount * (inv.dailyReturnRate || 0))), 0)
+                )} CDF
+              </p>
+            </div>
+            <button
+              onClick={() => executeDailyGainsCalculation(selectedInvestments)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+            >
+              Confirmer et exécuter
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead>
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <input
+                type="checkbox"
+                checked={selectedInvestments.length === eligibleInvestments.length && eligibleInvestments.length > 0}
+                onChange={toggleSelectAllInvestments}
+                className="h-4 w-4 text-blue-600 rounded"
+              />
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Niveau</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Investissement</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gain journalier</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {eligibleInvestments.map((investment) => (
+            <tr key={investment.id} className="hover:bg-gray-50">
+              <td className="px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={selectedInvestments.includes(investment.id)}
+                  onChange={() => toggleInvestmentSelection(investment.id)}
+                  className="h-4 w-4 text-blue-600 rounded"
+                />
+              </td>
+              <td className="px-4 py-3">
+                <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
+                  {investment.userEmail || investment.userId.substring(0, 8) + '...'}
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {investment.levelName || 'N/A'}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <span className="text-sm font-medium text-gray-900">
+                  {formatAmount(investment.investedAmount || 0)} CDF
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <span className="text-sm font-bold text-green-700">
+                  {formatAmount(investment.dailyGain || (investment.investedAmount * (investment.dailyReturnRate || 0)))} CDF
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {eligibleInvestments.length === 0 && (
+      <div className="text-center py-8">
+        <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+        <p className="text-gray-500">Aucun investissement éligible trouvé</p>
+      </div>
+    )}
+  </div>
+</Drawer>
+
+
+
+{/* AJOUTER ce Drawer à la fin de tous les autres Drawers */}
+<Drawer
+  isOpen={whatsappDrawerOpen}
+  onClose={() => setWhatsappDrawerOpen(false)}
+  title="Configuration WhatsApp"
+  size="md"
+>
+  <div className="space-y-4">
+    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <MessageCircle className="w-5 h-5 text-green-600" />
+        <h3 className="text-lg font-semibold text-green-900">
+          Paramètres WhatsApp
+        </h3>
+      </div>
+      <p className="text-sm text-green-700">
+        Configurez le lien WhatsApp qui sera utilisé dans l'application
+      </p>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Numéro de téléphone
+      </label>
+      <input
+        type="text"
+        value={whatsappConfig.phoneNumber}
+        onChange={(e) => setWhatsappConfig({...whatsappConfig, phoneNumber: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        placeholder="+243XXXXXXXXX"
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Format: +243 suivi du numéro (ex: +243810000000)
+      </p>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Message par défaut
+      </label>
+      <textarea
+        value={whatsappConfig.message}
+        onChange={(e) => setWhatsappConfig({...whatsappConfig, message: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        rows="3"
+        placeholder="Message automatique..."
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Message qui sera pré-rempli dans WhatsApp
+      </p>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Lien du groupe WhatsApp
+      </label>
+      <input
+        type="url"
+        value={whatsappConfig.groupLink}
+        onChange={(e) => setWhatsappConfig({...whatsappConfig, groupLink: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        placeholder="https://chat.whatsapp.com/..."
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Lien d'invitation au groupe WhatsApp
+      </p>
+    </div>
+
+    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+      <p className="text-xs text-gray-600 mb-1">
+        Prévisualisation du lien :
+      </p>
+      <p className="text-xs font-mono text-gray-800 break-all">
+        {`https://wa.me/${whatsappConfig.phoneNumber.replace('+', '')}?text=${encodeURIComponent(whatsappConfig.message)}`}
+      </p>
+    </div>
+
+    <div className="pt-4 border-t border-gray-200">
+      <button
+        onClick={saveWhatsappConfig}
+        disabled={whatsappLoading}
+        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {whatsappLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Sauvegarde...
+          </>
+        ) : (
+          'Enregistrer la configuration'
+        )}
+      </button>
+    </div>
+  </div>
+</Drawer>
     </div>
   );
 }
