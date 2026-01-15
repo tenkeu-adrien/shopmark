@@ -16,7 +16,10 @@ const router = useRouter();
     { year: "1950", event: "Création à Budapest, Hongrie" },
     { year: "1997", event: "Ouverture officielle dans plusieurs états" }
   ];
-
+const whatsappNumber = "+1 (778) 825-2127";
+  
+    // Nettoyer le numéro pour l'URL WhatsApp
+    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
 
@@ -154,6 +157,7 @@ const router = useRouter();
           </div>
         </div>
 
+  
         {/* CTA */}
         <div className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-4xl mx-auto mb-16">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
@@ -162,7 +166,7 @@ const router = useRouter();
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Rejoignez les grandes entreprises qui nous font confiance pour leurs stratégies marketing.
           </p>
-          <a href="https://wa.me/447412830186" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition duration-300 transform hover:scale-105">
+          <a href={`https://wa.me/${cleanedNumber}`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition duration-300 transform hover:scale-105">
             Contactez-nous
           </a>
         </div>

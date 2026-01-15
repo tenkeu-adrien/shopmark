@@ -1,7 +1,34 @@
+"use client"
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
+import { usePathname } from "next/navigation"; // Utilisez usePathname au lieu de useRouter
+import { useEffect, useState } from "react";
 
 export default function WebTabFooter() {
+  const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const [showFooter, setShowFooter] = useState(false);
 
+  useEffect(() => {
+    if (!loading) {
+      // Afficher le footer seulement si l'utilisateur est connecté
+      if (user) {
+        setShowFooter(true);
+      } else {
+        setShowFooter(false);
+      }
+    }
+  }, [user, loading]);
+
+  // Ne pas afficher pendant le chargement
+  if (loading) {
+    return null;
+  }
+
+  // Ne pas afficher si l'utilisateur n'est pas connecté
+  if (!showFooter || !user) {
+    return null;
+  }
 
   const tabs = [
     { 

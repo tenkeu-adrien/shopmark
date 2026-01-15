@@ -44,7 +44,10 @@ export default function DepotPage() {
   const [transactionId, setTransactionId] = useState("");
   const [usdtAmount, setUsdtAmount] = useState("");
   const [exchangeRate] = useState(2350);
-
+ const whatsappNumber = "+1 (778) 825-2127";
+  
+    // Nettoyer le numéro pour l'URL WhatsApp
+    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
   // NOUVEAU: États pour les portefeuilles dynamiques
   const [dynamicWallets, setDynamicWallets] = useState({
     airtel: { number: "", name: "" },
@@ -1167,9 +1170,9 @@ export default function DepotPage() {
                   </li>
                 )}
               </ul>
-              
+        
               <button
-                onClick={() => window.open('https://wa.me/447412830186', '_blank')}
+                onClick={() => window.open(`https://wa.me/${cleanedNumber}`, '_blank')}
                 className="w-full mt-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
                 <span>💬</span>

@@ -235,11 +235,11 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // Mettre à jour la dernière connexion
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      await setDoc(doc(db, 'users', userCredential?.user?.uid), {
         lastLogin: serverTimestamp()
       }, { merge: true });
 
-      console.log('✅ Connexion réussie:', userCredential.user.uid);
+      // console.log('✅ Connexion réussie:', userCredential.user.uid);
       return { 
         success: true, 
         user: userCredential.user 

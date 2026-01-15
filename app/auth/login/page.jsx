@@ -102,7 +102,7 @@ export default function AuthPage() {
       try {
         const result = await login(fullPhoneNumber, password);
         if (result.success) {
-          router.push('/');
+          router.push('/accueil');
         } else {
           setError('Numéro de téléphone ou mot de passe incorrect');
         }

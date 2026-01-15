@@ -39,7 +39,10 @@ export default function RetraitPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [tempWalletInfo, setTempWalletInfo] = useState("");
   const [transactionId, setTransactionId] = useState("");
-
+  const whatsappNumber = "+1 (778) 825-2127";
+  
+    // Nettoyer le numéro pour l'URL WhatsApp
+    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
   const [userInfo, setUserInfo] = useState({
     uid: "",
     email: "",
@@ -1258,8 +1261,10 @@ export default function RetraitPage() {
                 </li>
               </ul>
               
+
+             
               <button
-                onClick={() => window.open('https://wa.me/447412830186', '_blank')}
+                onClick={() => window.open(`https://wa.me/${cleanedNumber}`, '_blank')}
                 className="w-full mt-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium"
               >
                 📞 Contacter le support

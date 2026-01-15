@@ -32,7 +32,10 @@ export default function ProfilePage() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const whatsappNumber = "+1 (778) 825-2127";
   
+    // Nettoyer le numéro pour l'URL WhatsApp
+    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
   // Charger les données depuis Firebase
   useEffect(() => {
     if (!authUser?.uid) return;
@@ -126,7 +129,7 @@ export default function ProfilePage() {
     // { id: 2, icon: TrendingUp, label: "Niveaux d'investissement", href: "/dashboard" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/install" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
-    { id: 5, icon: Headphones, label: "Service client", href:"https://wa.me/447412830186" },
+    { id: 5, icon: Headphones, label: "Service client", href:`https://wa.me/${cleanedNumber}` },
   ];
 
   const handleLogout = async () => {

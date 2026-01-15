@@ -52,7 +52,7 @@ export default function CriteoWelcomePage() {
   const [teamStats, setTeamStats] = useState(null);
   const router = useRouter();
   const url = "https://shopmark.fr";
-  const inviteCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
+  const inviteCode = user?.invitationCode || user?.uid.substring(0, 8).toUpperCase();
   const inviteLinkCode = `${url}/invite/${inviteCode}`;
 console.log("levels" ,levels)
   // Vérification d'authentification
@@ -61,6 +61,24 @@ console.log("levels" ,levels)
       router.push(`/invite/${inviteCode}`);
     }
   }, [user]);
+
+
+    useEffect(() => {
+    // Attends que le chargement soit fini pour éviter des redirections inutiles
+    if (!loading) {
+      if (user) {
+        // Utilisateur connecté → redirige vers l'accueil
+        router.replace('/accueil'); // ou '/dashboard' selon ton choix
+      } else {
+        // Pas connecté → redirige vers login
+        router.replace('/auth/login');
+      }
+    }
+  }, [user, loading, router]);
+
+
+
+
 
   // Charger les données utilisateur
   useEffect(() => {
@@ -83,7 +101,7 @@ console.log("levels" ,levels)
         }
 
         // 2. Charger le wallet avec la nouvelle structure
-        const walletRef = doc(db, 'wallets', user.uid);
+        const walletRef = doc(db, 'wallets', user?.uid);
         const walletSnap = await getDoc(walletRef);
         
         if (walletSnap.exists()) {
@@ -94,13 +112,13 @@ console.log("levels" ,levels)
           });
         } else {
           // Créer wallet avec structure corrigée
-          await createFixedWallet(user.uid);
+          await createFixedWallet(user?.uid);
         }
 
         // 3. Charger les niveaux de l'utilisateur
         const userLevelsQuery = query(
           collection(db, 'user_levels'),
-          where('userId', '==', user.uid)
+          where('userId', '==', user?.uid)
         );
         
         const userLevelsSnapshot = await getDocs(userLevelsQuery);
@@ -121,7 +139,7 @@ console.log("levels" ,levels)
         setLevels(levelsData);
 
         // 5. Charger les stats de l'équipe
-        await loadTeamStats(user.uid);
+        await loadTeamStats(user?.uid);
 
       } catch (error) {
         console.error('Erreur chargement données:', error);
@@ -135,7 +153,7 @@ console.log("levels" ,levels)
 
     // Écoute en temps réel
     const unsubscribeWallet = onSnapshot(
-      doc(db, 'wallets', user.uid),
+      doc(db, 'wallets', user?.uid),
       (snapshot) => {
         if (snapshot.exists()) {
           setWallet({
@@ -149,7 +167,7 @@ console.log("levels" ,levels)
     const unsubscribeUserLevels = onSnapshot(
       query(
         collection(db, 'user_levels'),
-        where('userId', '==', user.uid),
+        where('userId', '==', user?.uid),
         orderBy('startDate', 'desc')
       ),
       (snapshot) => {
@@ -359,7 +377,7 @@ const handleParticipate = async (level) => {
     }
 
     // 2. CALCULER LE TRANSFERT FINANCIER
-    const walletRef = doc(db, 'wallets', user.uid);
+    const walletRef = doc(db, 'wallets', user?.uid);
     const currentAvailableBalance = wallet.balances?.wallet?.amount || 0;
     const currentInvestedBalance = wallet.balances?.action?.amount || 0;
     
@@ -396,7 +414,7 @@ const handleParticipate = async (level) => {
     const transactionRef = doc(collection(db, 'transactions'));
     batch.set(transactionRef, {
       transactionId: `INV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: user.uid,
+      userId: user?.uid,
       userEmail: user.email,
       type: 'investment',
       amount: amountToInvest,
@@ -438,7 +456,7 @@ const handleParticipate = async (level) => {
         const gainRef = doc(collection(db, 'transactions'));
         batch.set(gainRef, {
           transactionId: `GAIN_INITIAL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          userId: user.uid,
+          userId: user?.uid,
           userEmail: user.email,
           type: 'initial_daily_gain',
           amount: dailyGain,
@@ -470,7 +488,7 @@ const handleParticipate = async (level) => {
 
     batch.set(userLevelRef, {
       userLevelId: userLevelRef.id,
-      userId: user.uid,
+      userId: user?.uid,
       userEmail: user.email,
       levelId: level.levelId,
       levelName: level.name,
@@ -495,7 +513,7 @@ const handleParticipate = async (level) => {
     });
 
     // 7. METTRE À JOUR LE PROFIL UTILISATEUR
-    const userRef = doc(db, 'users', user.uid);
+    const userRef = doc(db, 'users', user?.uid);
     batch.update(userRef, {
       currentLevel: level.levelId,
       currentLevelName: level.name,
@@ -506,7 +524,7 @@ const handleParticipate = async (level) => {
 
     // 8. DÉCLENCHER LES COMMISSIONS DE PARRAINAGE (TOUJOURS au premier investissement)
     if (isFirstInvestmentEver) {
-      await triggerReferralCommissions(user.uid, amountToInvest, batch);
+      await triggerReferralCommissions(user?.uid, amountToInvest, batch);
     }
 
     // EXÉCUTER LA BATCH

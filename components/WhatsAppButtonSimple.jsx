@@ -1,23 +1,81 @@
+// "use client";
+
+// import { motion } from "framer-motion";
+// import { MessageCircle } from "lucide-react";
+// import Image from "next/image";
+// import useWhatsappConfig from "@/hooks/useWhatsappConfig";
+
+// export default function WhatsAppButtonSimple() {
+//   const { config, loading } = useWhatsappConfig();
+  
+//   const handleClick = () => {
+//     if (!config) return;
+    
+//     const whatsappUrl = config.groupLink;
+//     window.open(whatsappUrl, "_blank");
+//   };
+
+//   if (loading || !config) {
+//     return null; // Ne rien afficher pendant le chargement
+//   }
+
+//   return (
+//     <motion.div
+//       initial={{ opacity: 0, y: 50 }}
+//       animate={{ opacity: 1, y: 0 }}
+//       transition={{ duration: 0.5 }}
+//       className="fixed bottom-6 right-6 z-50"
+//     >
+//       <motion.button
+//         whileHover={{ scale: 1.1 }}
+//         whileTap={{ scale: 0.9 }}
+//         onClick={handleClick}
+//         className="bg-gradient-to-r cursor-pointer from-green-500 to-green-600 text-white rounded-full shadow-2xl hover:shadow-green-500/30 transition-all duration-300 group relative mb-35"
+//       >
+//         <Image 
+//           src="/whatsapp.png"  
+//           width={60} 
+//           height={60} 
+//           placeholder="blur" 
+//           blurDataURL="data:image/png;base64,..." 
+//           alt="whatsapp"
+//         />
+        
+//         {/* Tooltip */}
+//         <div className="absolute -top-12 right-0 bg-gray-900 text-white text-xs py-2 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+//           Contactez-nous sur WhatsApp
+//           <div className="absolute -bottom-1 right-4 w-2 h-2 bg-gray-900 transform rotate-45" />
+//         </div>
+//       </motion.button>
+
+//       {/* Notification dot */}
+//       <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping" />
+//       <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+//     </motion.div>
+//   );
+// }
+
+
+
+
+
+
+
 "use client";
 
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
-import useWhatsappConfig from "@/hooks/useWhatsappConfig";
 
 export default function WhatsAppButtonSimple() {
-  const { config, loading } = useWhatsappConfig();
+  const whatsappNumber = "+1 (778) 825-2127";
   
   const handleClick = () => {
-    if (!config) return;
-    
-    const whatsappUrl = config.groupLink;
+    // Nettoyer le numéro pour l'URL WhatsApp
+    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '');
+    const whatsappUrl = `https://wa.me/${cleanedNumber}`;
     window.open(whatsappUrl, "_blank");
   };
-
-  if (loading || !config) {
-    return null; // Ne rien afficher pendant le chargement
-  }
 
   return (
     <motion.div
