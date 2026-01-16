@@ -68,7 +68,7 @@ import { MessageCircle } from "lucide-react";
 import Image from "next/image";
 
 export default function WhatsAppButtonSimple() {
-  const whatsappNumber = "+1 (778) 825-2127";
+  const whatsappNumber = "+1 (450) 914-1073";
   
   const handleClick = () => {
     // Nettoyer le numéro pour l'URL WhatsApp

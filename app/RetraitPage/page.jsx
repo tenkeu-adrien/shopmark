@@ -39,7 +39,7 @@ export default function RetraitPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [tempWalletInfo, setTempWalletInfo] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const whatsappNumber = "+1 (778) 825-2127";
+  const whatsappNumber = "+1 (450) 914-1073";
   
     // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')

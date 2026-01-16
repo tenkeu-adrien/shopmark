@@ -44,7 +44,7 @@ export default function DepotPage() {
   const [transactionId, setTransactionId] = useState("");
   const [usdtAmount, setUsdtAmount] = useState("");
   const [exchangeRate] = useState(2350);
- const whatsappNumber = "+1 (778) 825-2127";
+ const whatsappNumber = "+1 (450) 914-1073";
   
     // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')

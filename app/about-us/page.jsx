@@ -16,7 +16,7 @@ const router = useRouter();
     { year: "1950", event: "Création à Budapest, Hongrie" },
     { year: "1997", event: "Ouverture officielle dans plusieurs états" }
   ];
-const whatsappNumber = "+1 (778) 825-2127";
+const whatsappNumber = "+1 (450) 914-1073";
   
     // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
