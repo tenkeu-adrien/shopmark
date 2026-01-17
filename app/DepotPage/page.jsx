@@ -114,6 +114,7 @@ export default function DepotPage() {
 
         setDynamicWallets(wallets);
         
+        console.log("wallets  " , wallets)
         // Mettre à jour depositInfo avec les numéros dynamiques
         setDepositInfo(prev => ({
           ...prev,

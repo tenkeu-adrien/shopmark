@@ -109,7 +109,7 @@ export default function TransactionsPage() {
 
       setTransactions(transactionsData);
     } catch (error) {
-      console.error('Erreur chargement transactions:', error);
+      console.error('Erreur chargemment transactions:', error);
     } finally {
       setLoading(false);
     }

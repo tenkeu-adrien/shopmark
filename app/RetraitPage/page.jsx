@@ -67,7 +67,7 @@ export default function RetraitPage() {
   
   const [linkedWallet, setLinkedWallet] = useState({
     provider: "airtel",
-    number: "+243 81 234 5678",
+    number: "0 81 234 5678",
   });
 
   const [cryptoAddress, setCryptoAddress] = useState("");
@@ -138,7 +138,6 @@ export default function RetraitPage() {
         });
 
         setDynamicAgents(agents);
-        
         // Mettre à jour agentsInfo avec les numéros dynamiques
         setAgentsInfo({
           airtelAgent: agents.airtelAgent.number || "0986343739",
@@ -457,9 +456,9 @@ export default function RetraitPage() {
     } else {
       setLinkedWallet({
         provider: provider,
-        number: provider === "orange" ? "+243 89 876 5432" : 
-                provider === "airtel" ? "+243 81 234 5678" : 
-                "+243 97 123 4567"
+        number: provider === "orange" ? "089 876 5432" : 
+                provider === "airtel" ? "081 234 5678" : 
+                "097 123 4567"
       });
     }
     setSelectedMethod(provider);
