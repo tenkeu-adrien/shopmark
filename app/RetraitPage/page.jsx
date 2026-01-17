@@ -457,9 +457,9 @@ export default function RetraitPage() {
     } else {
       setLinkedWallet({
         provider: provider,
-        number: provider === "orange" ? "089 89 876 5432" : 
-                provider === "airtel" ? "099 81 234 5678" : 
-                "082 97 123 4567"
+        number: provider === "orange" ? "0898765432" : 
+                provider === "airtel" ? "0992345678" : 
+                "0821234567"
       });
     }
     setSelectedMethod(provider);
