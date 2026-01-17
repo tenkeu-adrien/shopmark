@@ -32,7 +32,7 @@ export default function ProfilePage() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const whatsappNumber = "+1 (778) 825-2127";
+  const whatsappNumber = "+1 (450) 914-1073";
   
     // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
