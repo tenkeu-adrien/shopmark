@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 export default function useWhatsappConfig() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+console.log("un log de texte pour l'application");
 
   useEffect(() => {
     loadConfig();

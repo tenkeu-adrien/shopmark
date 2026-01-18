@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeApp = async () => {
       // Initialiser les collections au démarrage de l'app
-      await firestoreService.initializeIfNeeded();
+      // await firestoreService.initializeIfNeeded();
       
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }) => {
           }
           
           // S'assurer que tous les niveaux existent
-          await firestoreService.ensureLevelsExist();
+          // await firestoreService.ensureLevelsExist();
           
           setUser({
             uid: user.uid,

@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+// Ajoutez ces imports
+import teamService from "@/services/teamService";
+import useTeamStore from "@/lib/teamStore";
 import { 
   collection, 
   query, 
@@ -61,119 +64,130 @@ export default function MesFilleulsPage() {
   });
 
   // Fonction pour récupérer récursivement les filleuls sur 3 niveaux
-const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
-    if (niveauActuel > maxNiveau) return [];
+// const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
+//     if (niveauActuel > maxNiveau) return [];
     
-    const filleulsQuery = query(
-      collection(db, 'users'),
-      where('referrerId', '==', userId)
-    );
+//     const filleulsQuery = query(
+//       collection(db, 'users'),
+//       where('referrerId', '==', userId)
+//     );
     
-    const snapshot = await getDocs(filleulsQuery);
-    const filleulsNiveau = [];
+//     const snapshot = await getDocs(filleulsQuery);
+//     const filleulsNiveau = [];
     
-    for (const filleulDoc of snapshot.docs) {
-      const filleulData = filleulDoc.data();
-      const filleulId = filleulDoc.id;
+//     for (const filleulDoc of snapshot.docs) {
+//       const filleulData = filleulDoc.data();
+//       const filleulId = filleulDoc.id;
       
-      // Récupérer les investissements
-      const userLevelsQuery = query(
-        collection(db, 'user_levels'),
-        where('userId', '==', filleulId)
-      );
-      const userLevelsSnapshot = await getDocs(userLevelsQuery);
+//       // Récupérer les investissements
+//       const userLevelsQuery = query(
+//         collection(db, 'user_levels'),
+//         where('userId', '==', filleulId)
+//       );
+//       const userLevelsSnapshot = await getDocs(userLevelsQuery);
       
-      // Chercher l'investissement actif (un seul possible)
-      let investissementActif = null;
-      let premierInvestissement = null;
-      let status = "inactif";
+//       // Chercher l'investissement actif (un seul possible)
+//       let investissementActif = null;
+//       let premierInvestissement = null;
+//       let status = "inactif";
       
-      userLevelsSnapshot.docs.forEach(levelDoc => {
-        const levelData = levelDoc.data();
+//       userLevelsSnapshot.docs.forEach(levelDoc => {
+//         const levelData = levelDoc.data();
         
-        // Recherche de l'investissement actif (status === 'active')
-        if (levelData.status === 'active') {
-          investissementActif = levelData;
-          status = "actif";
-        }
+//         // Recherche de l'investissement actif (status === 'active')
+//         if (levelData.status === 'active') {
+//           investissementActif = levelData;
+//           status = "actif";
+//         }
         
-        // Premier investissement (pour historique)
-        if (levelData.isFirstInvestment === true) {
-          premierInvestissement = levelData;
-        }
-      });
+//         // Premier investissement (pour historique)
+//         if (levelData.isFirstInvestment === true) {
+//           premierInvestissement = levelData;
+//         }
+//       });
       
-      // Si pas de flag isFirstInvestment, prendre le plus ancien investissement
-      if (!premierInvestissement && userLevelsSnapshot.docs.length > 0) {
-        const sorted = userLevelsSnapshot.docs.sort((a, b) => {
-          const dateA = a.data().startDate?.toDate?.() || new Date(0);
-          const dateB = b.data().startDate?.toDate?.() || new Date(0);
-          return dateA - dateB;
-        });
-        premierInvestissement = sorted[0]?.data();
-      }
+//       // Si pas de flag isFirstInvestment, prendre le plus ancien investissement
+//       if (!premierInvestissement && userLevelsSnapshot.docs.length > 0) {
+//         const sorted = userLevelsSnapshot.docs.sort((a, b) => {
+//           const dateA = a.data().startDate?.toDate?.() || new Date(0);
+//           const dateB = b.data().startDate?.toDate?.() || new Date(0);
+//           return dateA - dateB;
+//         });
+//         premierInvestissement = sorted[0]?.data();
+//       }
       
-      // Montant investi = seulement le montant de l'investissement actif
-      const montantInvesti = investissementActif ? (investissementActif.investedAmount || 0) : 0;
+//       // Montant investi = seulement le montant de l'investissement actif
+//       const montantInvesti = investissementActif ? (investissementActif.investedAmount || 0) : 0;
       
-      // Niveau d'investissement = celui de l'investissement actif
-      const niveauInvestissement = investissementActif?.levelName || premierInvestissement?.levelName || "Non investi";
+//       // Niveau d'investissement = celui de l'investissement actif
+//       const niveauInvestissement = investissementActif?.levelName || premierInvestissement?.levelName || "Non investi";
       
-      // Récupérer les commissions pour ce filleul
-      const commissionsQuery = query(
-        collection(db, 'transactions'),
-        where('userId', '==', user.uid),
-        where('type', '==', 'referral_commission'),
-        where('metadata.referredUserId', '==', filleulId)
-      );
+//       // Récupérer les commissions pour ce filleul
+//       const commissionsQuery = query(
+//         collection(db, 'transactions'),
+//         where('userId', '==', user.uid),
+//         where('type', '==', 'referral_commission'),
+//         where('metadata.referredUserId', '==', filleulId)
+//       );
       
-      const commissionsSnapshot = await getDocs(commissionsQuery);
-      let bonusFilleul = 0;
-      const bonusDetails = [];
+//       const commissionsSnapshot = await getDocs(commissionsQuery);
+//       let bonusFilleul = 0;
+//       const bonusDetails = [];
       
-      commissionsSnapshot.docs.forEach(commDoc => {
-        const commData = commDoc.data();
-        const montant = commData.amount || 0;
-        bonusFilleul += montant;
-        bonusDetails.push({
-          montant: montant,
-          date: commData.createdAt?.toDate?.() || new Date(),
-          niveau: commData.metadata?.commissionLevel || niveauActuel,
-          taux: commData.metadata?.commissionRate || (niveauActuel === 1 ? 0.03 : niveauActuel === 2 ? 0.02 : 0.01)
-        });
-      });
+//       commissionsSnapshot.docs.forEach(commDoc => {
+//         const commData = commDoc.data();
+//         const montant = commData.amount || 0;
+//         bonusFilleul += montant;
+//         bonusDetails.push({
+//           montant: montant,
+//           date: commData.createdAt?.toDate?.() || new Date(),
+//           niveau: commData.metadata?.commissionLevel || niveauActuel,
+//           taux: commData.metadata?.commissionRate || (niveauActuel === 1 ? 0.03 : niveauActuel === 2 ? 0.02 : 0.01)
+//         });
+//       });
       
-      // Taux de commission selon le niveau
-      const commissionRate = niveauActuel === 1 ? 3 : niveauActuel === 2 ? 2 : 1;
+//       // Taux de commission selon le niveau
+//       const commissionRate = niveauActuel === 1 ? 3 : niveauActuel === 2 ? 2 : 1;
       
-      filleulsNiveau.push({
-        id: filleulId,
-        name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
-        phone: filleulData.phone || "Non renseigné",
-        email: filleulData.email || "Sans email",
-        inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
-        montantInvesti: montantInvesti, // Seulement le montant actif
-        montantPremierInvest: premierInvestissement?.investedAmount || 0,
-        niveauInvestissement: niveauInvestissement, // Niveau de l'investissement actif
-        commissionRate: commissionRate,
-        bonusGagne: bonusFilleul,
-        bonusDetails: bonusDetails,
-        status: status, // "actif" seulement si a un investissement avec status === 'active'
-        niveauParrainage: niveauActuel,
-        lastLogin: filleulData.lastLogin?.toDate?.() || null,
-        totalInvestissements: userLevelsSnapshot.docs.length,
-        premierInvestissementDate: premierInvestissement?.startDate?.toDate?.() || null
-      });
+//       filleulsNiveau.push({
+//         id: filleulId,
+//         name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
+//         phone: filleulData.phone || "Non renseigné",
+//         email: filleulData.email || "Sans email",
+//         inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
+//         montantInvesti: montantInvesti, // Seulement le montant actif
+//         montantPremierInvest: premierInvestissement?.investedAmount || 0,
+//         niveauInvestissement: niveauInvestissement, // Niveau de l'investissement actif
+//         commissionRate: commissionRate,
+//         bonusGagne: bonusFilleul,
+//         bonusDetails: bonusDetails,
+//         status: status, // "actif" seulement si a un investissement avec status === 'active'
+//         niveauParrainage: niveauActuel,
+//         lastLogin: filleulData.lastLogin?.toDate?.() || null,
+//         totalInvestissements: userLevelsSnapshot.docs.length,
+//         premierInvestissementDate: premierInvestissement?.startDate?.toDate?.() || null
+//       });
       
-      // Récupérer les filleuls du niveau suivant (récursif)
-      if (niveauActuel < maxNiveau) {
-        const filleulsSuivants = await getFilleulsRecursif(filleulId, niveauActuel + 1, maxNiveau);
-        filleulsNiveau.push(...filleulsSuivants);
-      }
-    }
+//       // Récupérer les filleuls du niveau suivant (récursif)
+//       if (niveauActuel < maxNiveau) {
+//         const filleulsSuivants = await getFilleulsRecursif(filleulId, niveauActuel + 1, maxNiveau);
+//         filleulsNiveau.push(...filleulsSuivants);
+//       }
+//     }
     
-    return filleulsNiveau;
-  };
+//     return filleulsNiveau;
+//   };
+const getFilleulsDataFromService = async () => {
+  try {
+    console.log('🔄 Chargement des filleuls via service avec cache...');
+    const data = await teamService.getFilleulsData(user.uid);
+    return data;
+  } catch (error) {
+    console.error('Erreur service filleuls:', error);
+    return { filleuls: [], stats: {} };
+  }
+};
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
@@ -185,80 +199,116 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
     }
   }, [user, authLoading]);
 
-  const loadFilleulsData = async () => {
-    if (!user?.uid) return;
+  // const loadFilleulsData = async () => {
+
+  //   if (!user?.uid) return;
     
-    try {
-      setLoading(true);
-      console.log('🔄 Chargement des données des filleuls sur 3 niveaux...');
+  //   try {
+  //     setLoading(true);
+  //     console.log('🔄 Chargement des données des filleuls sur 3 niveaux...');
       
-      // Récupérer tous les filleuls sur 3 niveaux
-      const tousFilleuls = await getFilleulsRecursif(user.uid, 1, 3);
+  //     // Récupérer tous les filleuls sur 3 niveaux
+  //     const tousFilleuls = await getFilleulsRecursif(user.uid, 1, 3);
       
-      console.log('👥 Tous filleuls récupérés:', tousFilleuls.length);
+  //     console.log('👥 Tous filleuls récupérés:', tousFilleuls.length);
       
-      // Calculer les statistiques
-      let totalInvesti = 0;
-      let actifsCount = 0;
-      let totalBonusCalc = 0;
-      let bonusMoisCalc = 0;
-      let bonusSemaineCalc = 0;
+  //     // Calculer les statistiques
+  //     let totalInvesti = 0;
+  //     let actifsCount = 0;
+  //     let totalBonusCalc = 0;
+  //     let bonusMoisCalc = 0;
+  //     let bonusSemaineCalc = 0;
       
-      const maintenant = new Date();
-      const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
-      const debutSemaine = new Date(maintenant);
-      debutSemaine.setDate(maintenant.getDate() - 7);
+  //     const maintenant = new Date();
+  //     const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+  //     const debutSemaine = new Date(maintenant);
+  //     debutSemaine.setDate(maintenant.getDate() - 7);
       
-      tousFilleuls.forEach(filleul => {
-        totalInvesti += filleul.montantInvesti;
+  //     tousFilleuls.forEach(filleul => {
+  //       totalInvesti += filleul.montantInvesti;
         
-        if (filleul.status === 'actif') {
-          actifsCount++;
-        }
+  //       if (filleul.status === 'actif') {
+  //         actifsCount++;
+  //       }
         
-        totalBonusCalc += filleul.bonusGagne;
+  //       totalBonusCalc += filleul.bonusGagne;
         
-        // Calculer bonus du mois et semaine
-        filleul.bonusDetails?.forEach(detail => {
-          const dateBonus = detail.date;
-          if (dateBonus >= debutMois) {
-            bonusMoisCalc += detail.montant;
-          }
-          if (dateBonus >= debutSemaine) {
-            bonusSemaineCalc += detail.montant;
-          }
-        });
-      });
+  //       // Calculer bonus du mois et semaine
+  //       filleul.bonusDetails?.forEach(detail => {
+  //         const dateBonus = detail.date;
+  //         if (dateBonus >= debutMois) {
+  //           bonusMoisCalc += detail.montant;
+  //         }
+  //         if (dateBonus >= debutSemaine) {
+  //           bonusSemaineCalc += detail.montant;
+  //         }
+  //       });
+  //     });
       
-      // Trier par niveau puis par date d'inscription
-      const filleulsTries = tousFilleuls.sort((a, b) => {
-        // D'abord par niveau
-        if (a.niveauParrainage !== b.niveauParrainage) {
-          return a.niveauParrainage - b.niveauParrainage;
-        }
-        // Ensuite par date d'inscription (plus récent d'abord)
-        return new Date(b.inscriptionDate) - new Date(a.inscriptionDate);
-      });
+  //     // Trier par niveau puis par date d'inscription
+  //     const filleulsTries = tousFilleuls.sort((a, b) => {
+  //       // D'abord par niveau
+  //       if (a.niveauParrainage !== b.niveauParrainage) {
+  //         return a.niveauParrainage - b.niveauParrainage;
+  //       }
+  //       // Ensuite par date d'inscription (plus récent d'abord)
+  //       return new Date(b.inscriptionDate) - new Date(a.inscriptionDate);
+  //     });
       
-      setFilleuls(filleulsTries);
-      setTotalBonus(totalBonusCalc);
-      setStats({
-        total: tousFilleuls.length,
-        actifs: actifsCount,
-        inactifs: tousFilleuls.length - actifsCount,
-        totalInvesti: totalInvesti,
-        bonusMois: bonusMoisCalc,
-        bonusSemaine: bonusSemaineCalc
-      });
+  //     setFilleuls(filleulsTries);
+  //     setTotalBonus(totalBonusCalc);
+  //     setStats({
+  //       total: tousFilleuls.length,
+  //       actifs: actifsCount,
+  //       inactifs: tousFilleuls.length - actifsCount,
+  //       totalInvesti: totalInvesti,
+  //       bonusMois: bonusMoisCalc,
+  //       bonusSemaine: bonusSemaineCalc
+  //     });
       
-    } catch (error) {
-      console.error('❌ Erreur chargement filleuls:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   } catch (error) {
+  //     console.error('❌ Erreur chargement filleuls:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // Filtrage des filleuls
+// REMPLACER loadFilleulsData (ligne 168 à 245) PAR :
+
+const loadFilleulsData = async () => {
+  if (!user?.uid) return;
+  
+  try {
+    setLoading(true);
+    
+    const { filleuls, stats } = await getFilleulsDataFromService();
+    
+    // Trier par niveau puis par date
+    const filleulsTries = filleuls.sort((a, b) => {
+      if (a.niveauParrainage !== b.niveauParrainage) {
+        return a.niveauParrainage - b.niveauParrainage;
+      }
+      return new Date(b.inscriptionDate) - new Date(a.inscriptionDate);
+    });
+    
+    setFilleuls(filleulsTries);
+    setTotalBonus(stats.totalBonus || 0);
+    setStats({
+      total: stats.total || 0,
+      actifs: stats.actifs || 0,
+      inactifs: (stats.total || 0) - (stats.actifs || 0),
+      totalInvesti: stats.totalInvesti || 0,
+      bonusMois: stats.bonusMois || 0,
+      bonusSemaine: stats.bonusSemaine || 0
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur chargement filleuls:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   const filteredFilleuls = filleuls.filter(filleul => {
     // Filtre par recherche
     if (searchTerm) {
@@ -295,6 +345,7 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
   };
 
   const formatDateTime = (date) => {
+  
     if (!date) return "";
     const d = date.toDate ? date.toDate() : new Date(date);
     return d.toLocaleDateString('fr-FR', {
@@ -313,11 +364,13 @@ const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
     }).format(amount) + ' CDF';
   };
 
-  const handleRefresh = () => {
-    loadFilleulsData();
-  };
+// Remplacer handleRefresh par :
+const handleRefresh = () => {
+  useTeamStore.getState().invalidateCache(user.uid);
+  loadFilleulsData();
+};
 
-  ;
+  
 
   const getNiveauColor = (niveau) => {
     switch(niveau) {

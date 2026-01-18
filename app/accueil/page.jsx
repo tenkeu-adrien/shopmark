@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback ,useRef} from "react";
 import { motion } from "framer-motion";
 import {
   Wallet,
@@ -32,10 +32,10 @@ import {
   increment,
   onSnapshot,
   Timestamp,
-  orderBy
+  orderBy,
+   limit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { firestoreService } from "@/lib/initCollections";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -54,139 +54,260 @@ export default function CriteoWelcomePage() {
   const url = "https://shopmark.fr";
   const inviteCode = user?.invitationCode || user?.uid.substring(0, 8).toUpperCase();
   const inviteLinkCode = `${url}/invite/${inviteCode}`;
-console.log("levels" ,levels)
+console.log("page accueille" ,levels)
   // Vérification d'authentification
+ const abortControllerRef = useRef(null);
+  const realtimeListenersRef = useRef([]);
+  const retryCountRef = useRef(0);
+  const maxRetries = 3;
+  const isInitialLoadRef = useRef(true);
+  const timerIdRef = useRef(null)
+
+
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push(`/invite/${inviteCode}`);
-    }
-  }, [user]);
-
-
-    useEffect(() => {
     // Attends que le chargement soit fini pour éviter des redirections inutiles
-    if (!loading) {
-      if (user) {
-        // Utilisateur connecté → redirige vers l'accueil
-        router.replace('/accueil'); // ou '/dashboard' selon ton choix
-      } else {
-        // Pas connecté → redirige vers login
-        router.replace('/auth/login');
-      }
+    if (!loading && user) {
+      router.replace('/accueil');
+    } else if (!loading && !user) {
+      router.replace('/auth/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
 
 
 
 
-  // Charger les données utilisateur
-  useEffect(() => {
+ // Ajouter ces hooks en haut de votre composant
+
+useEffect(() => {
+    // Annuler toute requête précédente
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     if (!user?.uid) {
       setLoading(false);
       return;
     }
 
+    // Éviter les appels multiples pendant le chargement
+    if (loading && !isInitialLoadRef.current) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     const loadUserData = async () => {
       try {
-        firestoreService.initializeIfNeeded();
-        
-        // 1. Charger le profil utilisateur
-        const userDoc = await getDoc(doc(db, 'users', user?.uid));
+        // Vérifier si le signal est aborté
+        if (signal.aborted) {
+          console.log('Chargement annulé pour user:', user.uid);
+          return;
+        }
+
+        // CORRECTION: Vérifier si le timer existe déjà
+        const timerId = `Chargement-${user.uid.substring(0, 8)}`;
+        if (console.time && typeof console.time === 'function') {
+          try {
+            console.time(timerId);
+          } catch (timerError) {
+            console.log('Timer déjà existant, continuation...');
+          }
+        }
+
+        // Utiliser un batch de requêtes pour minimiser les appels
+        const batchPromises = [];
+
+        // 1. Données de base (parallèle)
+        const basePromises = [
+          getDoc(doc(db, 'users', user.uid)),
+          getDoc(doc(db, 'wallets', user.uid)),
+          getDocs(query(collection(db, 'levels'), orderBy('order')))
+        ];
+
+        const [userDoc, walletDoc, levelsSnapshot] = await Promise.all(basePromises);
+
+        // Vérifier annulation
+        if (signal.aborted) return;
+
+        // Traitements immédiats
         if (userDoc.exists()) {
-          setUserProfile({
-            id: userDoc.id,
-            ...userDoc.data()
-          });
+          setUserProfile({ id: userDoc.id, ...userDoc.data() });
         }
 
-        // 2. Charger le wallet avec la nouvelle structure
-        const walletRef = doc(db, 'wallets', user?.uid);
-        const walletSnap = await getDoc(walletRef);
-        
-        if (walletSnap.exists()) {
-          const walletData = walletSnap.data();
-          setWallet({
-            id: walletSnap.id,
-            ...walletData
-          });
+        let walletData = null;
+        if (walletDoc.exists()) {
+          walletData = { id: walletDoc.id, ...walletDoc.data() };
+          setWallet(walletData);
         } else {
-          // Créer wallet avec structure corrigée
-          await createFixedWallet(user?.uid);
+          walletData = await createFixedWallet(user.uid);
+          setWallet(walletData);
         }
 
-        // 3. Charger les niveaux de l'utilisateur
-        const userLevelsQuery = query(
-          collection(db, 'user_levels'),
-          where('userId', '==', user?.uid)
-        );
-        
-        const userLevelsSnapshot = await getDocs(userLevelsQuery);
-        const userLevelsData = userLevelsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setUserLevels(userLevelsData);
-
-        // 4. Charger tous les niveaux disponibles
-        const levelsSnapshot = await getDocs(collection(db, 'levels'));
-        const levelsData = levelsSnapshot.docs
-          .map(doc => ({
+        // Niveaux avec memoization
+        if (levelsSnapshot.size > 0) {
+          const newLevels = levelsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-          }))
-          .sort((a, b) => a.order - b.order);
-        setLevels(levelsData);
+          }));
+          
+          // Comparaison profonde pour éviter re-rendus
+          const hasChanged = newLevels.length !== levels.length || 
+            newLevels.some((level, idx) => 
+              !levels[idx] || level.levelId !== levels[idx].levelId
+            );
+          
+          if (hasChanged) {
+            setLevels(newLevels);
+          }
+        }
 
-        // 5. Charger les stats de l'équipe
-        await loadTeamStats(user?.uid);
+        // 2. Données dépendantes (série mais optimisées) - CORRECTION: utiliser limit
+        const userLevelsSnap = await getDocs(
+          query(
+            collection(db, 'user_levels'),
+            where('userId', '==', user.uid),
+            orderBy('startDate', 'desc'),
+            limit(50) // ← MAINTENANT IMPORTÉ CORRECTEMENT
+          )
+        );
+
+        if (!signal.aborted) {
+          const newUserLevels = userLevelsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setUserLevels(newUserLevels);
+        }
+
+        // 3. Stats d'équipe (avec timeout pour éviter blocage)
+        const statsPromise = new Promise((resolve) => {
+          timerIdRef.current = setTimeout(async () => {
+            if (!signal.aborted) {
+              await loadTeamStats(user.uid);
+            }
+            resolve();
+          }, 100);
+        });
+
+        batchPromises.push(statsPromise);
+
+        await Promise.all(batchPromises);
+
+        // CORRECTION: Fin du timer sécurisé
+        if (console.timeEnd && typeof console.timeEnd === 'function') {
+          try {
+            console.timeEnd(timerId);
+          } catch (timerError) {
+            // Ignorer l'erreur de timer
+          }
+        }
+        
+        isInitialLoadRef.current = false;
 
       } catch (error) {
-        console.error('Erreur chargement données:', error);
-        setError('Erreur lors du chargement des données');
+        // Ignorer les erreurs d'annulation
+        if (error.name === 'AbortError') {
+          console.log('Chargement annulé proprement');
+          return;
+        }
+        
+        console.error('Erreur détaillée:', error);
+        
+        // Gestion d'erreur spécifique
+        if (error.code === 'failed-precondition') {
+          setError('Veuillez rafraîchir la page');
+        } else if (error.code === 'unavailable') {
+          setError('Problème de connexion. Vérifiez votre internet');
+        } else {
+          setError('Erreur lors du chargement. Veuillez réessayer.');
+        }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     loadUserData();
 
-    // Écoute en temps réel
-    const unsubscribeWallet = onSnapshot(
-      doc(db, 'wallets', user?.uid),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setWallet({
-            id: snapshot.id,
-            ...snapshot.data()
-          });
-        }
-      }
-    );
+    // Configuration des listeners temps réel avec retry
+    const setupRealtimeWithRetry = () => {
+      try {
+        // Nettoyer les anciens listeners
+        cleanupRealtimeListeners();
 
-    const unsubscribeUserLevels = onSnapshot(
-      query(
-        collection(db, 'user_levels'),
-        where('userId', '==', user?.uid),
-        orderBy('startDate', 'desc')
-      ),
-      (snapshot) => {
-        const userLevelsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setUserLevels(userLevelsData);
-      }
-    );
+        // Wallet listener avec debounce
+        const walletListener = onSnapshot(
+          doc(db, 'wallets', user.uid),
+          (snap) => {
+            if (snap.exists()) {
+              setWallet(prev => {
+                const newData = { id: snap.id, ...snap.data() };
+                // Comparaison optimisée
+                if (prev && JSON.stringify(prev) === JSON.stringify(newData)) {
+                  return prev;
+                }
+                return newData;
+              });
+            }
+          },
+          (error) => {
+            console.warn('Erreur écoute wallet:', error);
+            if (retryCountRef.current < maxRetries) {
+              retryCountRef.current++;
+              setTimeout(setupRealtimeWithRetry, 1000 * retryCountRef.current);
+            }
+          }
+        );
 
-    return () => {
-      unsubscribeWallet();
-      unsubscribeUserLevels();
+        realtimeListenersRef.current.push(walletListener);
+        retryCountRef.current = 0; // Reset sur succès
+
+      } catch (error) {
+        console.error('Erreur configuration listeners:', error);
+      }
     };
-  }, [user?.uid]);
 
-  // Créer un wallet avec la structure corrigée
-  const createFixedWallet = async (userId) => {
+    // Nettoyer les listeners
+    const cleanupRealtimeListeners = () => {
+      realtimeListenersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      realtimeListenersRef.current = [];
+    };
+
+    // Démarrer les listeners après un délai
+    const listenerTimer = setTimeout(setupRealtimeWithRetry, 1000);
+
+    // Cleanup complet
+    return () => {
+      console.log('🧼 Cleanup pour user:', user?.uid);
+      
+      // Annuler le contrôleur d'abort
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Nettoyer tous les timers
+      clearTimeout(listenerTimer);
+      if (timerIdRef.current) {
+        clearTimeout(timerIdRef.current);
+      }
+      
+      // Nettoyer tous les listeners
+      cleanupRealtimeListeners();
+    };
+
+  }, [user?.uid]) // Dépendance unique
+
+const createFixedWallet = async (userId) => {
     try {
       const walletRef = doc(db, 'wallets', userId);
       const now = serverTimestamp();
@@ -196,17 +317,17 @@ console.log("levels" ,levels)
         userEmail: user?.email || '',
         userPhone: user?.phone || '',
         balances: {
-          wallet: { // Solde disponible pour investir/retirer
+          wallet: {
             amount: 0,
             currency: 'CDF',
             lastUpdated: now
           },
-          action: { // Solde actuellement investi
+          action: {
             amount: 0,
             currency: 'CDF',
             lastUpdated: now
           },
-          totalDeposited: { // Total historique des dépôts
+          totalDeposited: {
             amount: 0,
             currency: 'CDF',
             lastUpdated: now
@@ -228,17 +349,17 @@ console.log("levels" ,levels)
       };
 
       await setDoc(walletRef, walletData);
-      setWallet({
+      return {
         id: userId,
         ...walletData
-      });
+      };
     } catch (error) {
       console.error('Erreur création wallet:', error);
+      throw error;
     }
   };
 
-  // Charger les stats de l'équipe
-  const loadTeamStats = async (userId) => {
+const loadTeamStats = async (userId) => {
     try {
       // Niveau 1 (direct)
       const level1Query = query(
@@ -254,7 +375,7 @@ console.log("levels" ,levels)
       if (level1Users.length > 0) {
         const level2Query = query(
           collection(db, 'users'),
-          where('referrerId', 'in', level1Users)
+          where('referrerId', 'in', level1Users.slice(0, 10)) // Limiter pour Firestore
         );
         const level2Snap = await getDocs(level2Query);
         level2Count = level2Snap.docs.length;
@@ -265,7 +386,7 @@ console.log("levels" ,levels)
         if (level2Users.length > 0) {
           const level3Query = query(
             collection(db, 'users'),
-            where('referrerId', 'in', level2Users)
+            where('referrerId', 'in', level2Users.slice(0, 10)) // Limiter pour Firestore
           );
           const level3Snap = await getDocs(level3Query);
           level3Count = level3Snap.docs.length;

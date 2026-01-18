@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-
+console.log("ok dashboard")
   useEffect(() => {
     const loadDashboardData = async () => {
       try {

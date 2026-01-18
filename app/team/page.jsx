@@ -3,6 +3,9 @@
 import { Copy, Users, DollarSign, ChevronRight, Crown, UserCheck, Landmark, TrendingUp, List } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCallback } from "react";
+import teamService from "@/services/teamService";
+// import useTeamStore from "@/lib/teamStore";
 import { 
   collection, 
   query, 
@@ -14,6 +17,8 @@ import {
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
+
+
 
 export default function TeamSection() {
   const { user } = useAuth();
@@ -35,193 +40,169 @@ export default function TeamSection() {
   // Charger les données de l'équipe
   useEffect(() => {
     if (!user?.uid) return;
-
-    const loadTeamData = async () => {
-      try {
-        // 1. Charger le profil utilisateur pour le code d'invitation
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        
-        const invitationCode = user?.invitationCode || user.uid.substring(0, 8).toUpperCase();
-        const invitationLink = `${url}/invite/${invitationCode}`;
-
-        // 2. Calculer les membres par niveau ET leurs investissements totaux
-        const { level1, level2, level3, level1Investment, level2Investment, level3Investment } = 
-          await calculateTeamMembersAndInvestments(user.uid);
-
-        // 3. Calculer les revenus de commission
-        const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
-        const walletData = walletDoc.exists() ? walletDoc.data() : {};
-        const commissionEarned = walletData.stats?.referralEarnings || 0;
-        const totalRevenue = commissionEarned + (walletData.stats?.totalEarned || 0);
-
-        // 4. Préparer les données des niveaux de commission AVEC CORRECTION
-        const levels = prepareCommissionLevelsCorrected(
-          level1, level2, level3,
-          level1Investment, level2Investment, level3Investment
-        );
-
-        setTeamData({
-          invitationCode,
-          invitationLink,
-          teamMembers: {
-            level1,
-            level2,
-            level3,
-            total: level1 + level2 + level3
-          },
-          totalRevenue,
-          commissionEarned,
-          levels
-        });
-
-        console.log("Données de l'équipe chargées avec succès" , teamData);
-      } catch (error) {
-        console.error('Erreur chargement données équipe:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTeamData();
-  }, [user]);
-
-  // Calculer les membres de l'équipe ET leurs investissements totaux
-  const calculateTeamMembersAndInvestments = async (userId) => {
+const loadTeamData = async () => {
     try {
-      // Niveau 1 (direct)
-      const level1Query = query(
-        collection(db, 'users'),
-        where('referrerId', '==', userId)
-      );
-      const level1Snap = await getDocs(level1Query);
-      const level1Count = level1Snap.docs.length;
-      const level1Users = level1Snap.docs.map(doc => doc.id);
-
-      // Récupérer les investissements des membres niveau 1
-      let level1Investment = 0;
-      for (const level1UserId of level1Users) {
-        const userLevelsQuery = query(
-          collection(db, 'user_levels'),
-          where('userId', '==', level1UserId)
-        );
-        const userLevelsSnap = await getDocs(userLevelsQuery);
-        if (!userLevelsSnap.empty) {
-          // Prendre le premier investissement (isFirstInvestment = true)
-          const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
-          if (firstInvestment) {
-            level1Investment += firstInvestment.data().investedAmount || 0;
-          }
-        }
-      }
-
-      // Niveau 2
-      let level2Count = 0;
-      let level2Users = [];
-      let level2Investment = 0;
+      setLoading(true);
+      console.log('🔄 Chargement des stats équipe avec cache...');
       
-      if (level1Users.length > 0) {
-        const level2Query = query(
-          collection(db, 'users'),
-          where('referrerId', 'in', level1Users.slice(0, 10))
-        );
-        const level2Snap = await getDocs(level2Query);
-        level2Count = level2Snap.docs.length;
-        level2Users = level2Snap.docs.map(doc => doc.id);
-
-        // Récupérer les investissements des membres niveau 2
-        for (const level2UserId of level2Users) {
-          const userLevelsQuery = query(
-            collection(db, 'user_levels'),
-            where('userId', '==', level2UserId)
-          );
-          const userLevelsSnap = await getDocs(userLevelsQuery);
-          if (!userLevelsSnap.empty) {
-            const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
-            if (firstInvestment) {
-              level2Investment += firstInvestment.data().investedAmount || 0;
-            }
-          }
-        }
-      }
-
-      // Niveau 3
-      let level3Count = 0;
-      let level3Investment = 0;
+      const data = await teamService.getTeamStats(user.uid);
       
-      if (level2Users.length > 0) {
-        const level3Query = query(
-          collection(db, 'users'),
-          where('referrerId', 'in', level2Users.slice(0, 10))
-        );
-        const level3Snap = await getDocs(level3Query);
-        level3Count = level3Snap.docs.length;
-        const level3Users = level3Snap.docs.map(doc => doc.id);
-
-        // Récupérer les investissements des membres niveau 3
-        for (const level3UserId of level3Users) {
-          const userLevelsQuery = query(
-            collection(db, 'user_levels'),
-            where('userId', '==', level3UserId)
-          );
-          const userLevelsSnap = await getDocs(userLevelsQuery);
-          if (!userLevelsSnap.empty) {
-            const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
-            if (firstInvestment) {
-              level3Investment += firstInvestment.data().investedAmount || 0;
-            }
-          }
-        }
-      }
-
-      return { 
-        level1: level1Count, 
-        level2: level2Count, 
-        level3: level3Count,
-        level1Investment,
-        level2Investment, 
-        level3Investment
-      };
+      setTeamData({
+        invitationCode: data.invitationCode,
+        invitationLink: data.invitationLink,
+        teamMembers: data.teamMembers,
+        totalRevenue: data.totalRevenue,
+        commissionEarned: data.commissionEarned,
+        levels: data.levels
+      });
+      
     } catch (error) {
-      console.error('Erreur calcul membres:', error);
-      return { 
-        level1: 0, level2: 0, level3: 0,
-        level1Investment: 0, level2Investment: 0, level3Investment: 0
-      };
+      console.error('Erreur chargement données équipe:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // FONCTION CORRIGÉE : Préparer les données des niveaux de commission
-  const prepareCommissionLevelsCorrected = (level1, level2, level3, level1Investment, level2Investment, level3Investment) => {
-    const commissionRates = [3, 2, 1]; // 3%, 2%, 1%
-    const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
-    const colors = [
-      { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
-      { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
-      { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
-    ];
+    loadTeamData();
+  }, [user?.uid]);
 
-    // CALCUL CORRECT : Utiliser les montants d'investissement réels par niveau
-    return [0, 1, 2].map((index) => {
-      const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
-      const totalInvestment = index === 0 ? level1Investment : 
-                             index === 1 ? level2Investment : 
-                             index === 2 ? level3Investment : 0;
+  // Calculer les membres de l'équipe ET leurs investissements totaux
+  // const calculateTeamMembersAndInvestments = async (userId) => {
+  //   try {
+  //     // Niveau 1 (direct)
+  //     const level1Query = query(
+  //       collection(db, 'users'),
+  //       where('referrerId', '==', userId)
+  //     );
+  //     const level1Snap = await getDocs(level1Query);
+  //     const level1Count = level1Snap.docs.length;
+  //     const level1Users = level1Snap.docs.map(doc => doc.id);
+
+  //     // Récupérer les investissements des membres niveau 1
+  //     let level1Investment = 0;
+  //     for (const level1UserId of level1Users) {
+  //       const userLevelsQuery = query(
+  //         collection(db, 'user_levels'),
+  //         where('userId', '==', level1UserId)
+  //       );
+  //       const userLevelsSnap = await getDocs(userLevelsQuery);
+  //       if (!userLevelsSnap.empty) {
+  //         // Prendre le premier investissement (isFirstInvestment = true)
+  //         const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+  //         if (firstInvestment) {
+  //           level1Investment += firstInvestment.data().investedAmount || 0;
+  //         }
+  //       }
+  //     }
+
+  //     // Niveau 2
+  //     let level2Count = 0;
+  //     let level2Users = [];
+  //     let level2Investment = 0;
       
-      // REVENU RÉEL = Total investi × Taux de commission
-      const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
+  //     if (level1Users.length > 0) {
+  //       const level2Query = query(
+  //         collection(db, 'users'),
+  //         where('referrerId', 'in', level1Users.slice(0, 10))
+  //       );
+  //       const level2Snap = await getDocs(level2Query);
+  //       level2Count = level2Snap.docs.length;
+  //       level2Users = level2Snap.docs.map(doc => doc.id);
+
+  //       // Récupérer les investissements des membres niveau 2
+  //       for (const level2UserId of level2Users) {
+  //         const userLevelsQuery = query(
+  //           collection(db, 'user_levels'),
+  //           where('userId', '==', level2UserId)
+  //         );
+  //         const userLevelsSnap = await getDocs(userLevelsQuery);
+  //         if (!userLevelsSnap.empty) {
+  //           const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+  //           if (firstInvestment) {
+  //             level2Investment += firstInvestment.data().investedAmount || 0;
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     // Niveau 3
+  //     let level3Count = 0;
+  //     let level3Investment = 0;
       
-      return {
-        level: levelNames[index],
-        commissionRate: commissionRates[index],
-        validUsers: validUsers,
-        revenue: revenue,
-        totalInvestment: totalInvestment,
-        color: colors[index].gradient,
-        iconColor: colors[index].iconColor,
-        levelNumber: index + 1
-      };
-    });
-  };
+  //     if (level2Users.length > 0) {
+  //       const level3Query = query(
+  //         collection(db, 'users'),
+  //         where('referrerId', 'in', level2Users.slice(0, 10))
+  //       );
+  //       const level3Snap = await getDocs(level3Query);
+  //       level3Count = level3Snap.docs.length;
+  //       const level3Users = level3Snap.docs.map(doc => doc.id);
+
+  //       // Récupérer les investissements des membres niveau 3
+  //       for (const level3UserId of level3Users) {
+  //         const userLevelsQuery = query(
+  //           collection(db, 'user_levels'),
+  //           where('userId', '==', level3UserId)
+  //         );
+  //         const userLevelsSnap = await getDocs(userLevelsQuery);
+  //         if (!userLevelsSnap.empty) {
+  //           const firstInvestment = userLevelsSnap.docs.find(doc => doc.data().isFirstInvestment);
+  //           if (firstInvestment) {
+  //             level3Investment += firstInvestment.data().investedAmount || 0;
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     return { 
+  //       level1: level1Count, 
+  //       level2: level2Count, 
+  //       level3: level3Count,
+  //       level1Investment,
+  //       level2Investment, 
+  //       level3Investment
+  //     };
+  //   } catch (error) {
+  //     console.error('Erreur calcul membres:', error);
+  //     return { 
+  //       level1: 0, level2: 0, level3: 0,
+  //       level1Investment: 0, level2Investment: 0, level3Investment: 0
+  //     };
+  //   }
+  // };
+
+  // FONCTION CORRIGÉE : Préparer les données des niveaux de commission
+  // const prepareCommissionLevelsCorrected = (level1, level2, level3, level1Investment, level2Investment, level3Investment) => {
+  //   const commissionRates = [3, 2, 1]; // 3%, 2%, 1%
+  //   const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
+  //   const colors = [
+  //     { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
+  //     { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
+  //     { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
+  //   ];
+
+  //   // CALCUL CORRECT : Utiliser les montants d'investissement réels par niveau
+  //   return [0, 1, 2].map((index) => {
+  //     const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
+  //     const totalInvestment = index === 0 ? level1Investment : 
+  //                            index === 1 ? level2Investment : 
+  //                            index === 2 ? level3Investment : 0;
+      
+  //     // REVENU RÉEL = Total investi × Taux de commission
+  //     const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
+      
+  //     return {
+  //       level: levelNames[index],
+  //       commissionRate: commissionRates[index],
+  //       validUsers: validUsers,
+  //       revenue: revenue,
+  //       totalInvestment: totalInvestment,
+  //       color: colors[index].gradient,
+  //       iconColor: colors[index].iconColor,
+  //       levelNumber: index + 1
+  //     };
+  //   });
+  // };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);

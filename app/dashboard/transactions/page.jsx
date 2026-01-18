@@ -72,6 +72,7 @@ export default function TransactionsPage() {
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
 
+  console.log('ok nous sommes dans transactions')
   useEffect(() => {
     loadTransactions();
     const interval = setInterval(loadTransactions, 30000);

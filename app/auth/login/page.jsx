@@ -453,13 +453,16 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {isLogin && (
-            <div className="text-center pt-2">
-              <Link href="#" className="text-sm text-gray-400 hover:text-amber-500 transition-colors">
-                Mot de passe oublié ?
-              </Link>
-            </div>
-          )}
+{isLogin && (
+  <div className="text-center pt-2">
+    <Link 
+      href="/forgot-password"  // ← Nouvelle page
+      className="text-sm text-gray-400 hover:text-amber-500 transition-colors"
+    >
+      Mot de passe oublié ?
+    </Link>
+  </div>
+)}
         </form>
 
         <div className="pt-8 border-t border-gray-800 text-center">

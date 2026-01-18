@@ -29,7 +29,7 @@ const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-
+console.log("ok je log des textes" )
   useEffect(() => {
     const checkUserRole = async () => {
       if (!user) {

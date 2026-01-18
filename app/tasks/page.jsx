@@ -19,6 +19,7 @@ export default function TasksPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
+console.log("task loader" , transactions);
 
   // Récupérer l'utilisateur connecté
   useEffect(() => {

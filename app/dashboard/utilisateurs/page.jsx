@@ -4086,7 +4086,7 @@ export default function UtilisateursPage() {
     invitationCode: '',
     fullName: ''
   });
-  
+  console.log('ok utlisateur')
   // NOUVEAU: État pour la modification du solde
   const [balanceForm, setBalanceForm] = useState({
     type: 'add',
