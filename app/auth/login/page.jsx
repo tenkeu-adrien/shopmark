@@ -111,6 +111,11 @@ export default function AuthPage() {
       }
     } else {
       // Inscription
+      if (invitationCode.trim() && invitationCode.trim().length !== 8) {
+  setError('Le code d\'invitation doit contenir exactement 8 caractères');
+  setIsLoading(false);
+  return;
+}
       if (!fullName.trim()) {
         setError('Veuillez entrer votre nom complet');
         setIsLoading(false);
@@ -387,41 +392,47 @@ export default function AuthPage() {
               </div>
             </div>
           )}
-
-          {/* Code d'invitation */}
-          {!isLogin && (
-            <div>
-              <label htmlFor="invitationCode" className="block text-sm font-medium text-gray-300 mb-2">
-                Code d'invitation
-                <span className="text-amber-500 text-sm ml-1">
-                  {invitationCode ? '(pré-rempli)' : ''}
-                </span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Gift className="h-5 w-5 text-gray-500" />
-                </div>
-                <input
-                  id="invitationCode"
-                  type="text"
-                  disabled={isLoading || !!invitationCode}
-                  value={invitationCode}
-                  onChange={(e) => setInvitationCode(e.target.value)}
-                  className={`block w-full pl-12 pr-4 py-4 bg-gray-800 border ${
-                    invitationCode ? 'border-amber-500/50' : 'border-gray-700'
-                  } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all`}
-                  placeholder="Entrez un code d'invitation"
-                  readOnly={!!invitationCode}
-                />
-                {invitationCode && (
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                    <Check className="h-5 w-5 text-amber-500" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+{!isLogin && (
+  <div>
+    <label htmlFor="invitationCode" className="block text-sm font-medium text-gray-300 mb-2">
+      Code d'invitation
+      <span className="text-amber-500 text-sm ml-1">
+        {invitationCode ? '(pré-rempli)' : '(Exigé)'}
+      </span>
+    </label>
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <Gift className="h-5 w-5 text-gray-500" />
+      </div>
+      <input
+        id="invitationCode"
+        type="text"
+        disabled={isLoading}
+        value={invitationCode}
+        onChange={(e) => {
+          const value = e.target.value;
+          // Nettoyer les espaces au début/fin et garder les caractères spéciaux
+          setInvitationCode(value.trim());
+        }}
+        maxLength={8}
+        className={`block w-full pl-12 pr-4 py-4 bg-gray-800 border ${
+          invitationCode ? 'border-amber-500/50' : 'border-gray-700'
+        } rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all disabled:opacity-50`}
+        placeholder="8 caractères (ex: ABRF67GY)"
+      />
+      {invitationCode && invitationCode.length === 8 && (
+        <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+          <Check className="h-5 w-5 text-green-500" />
+        </div>
+      )}
+    </div>
+    {invitationCode && invitationCode.length !== 8 && (
+      <p className="text-xs text-red-500 mt-1">
+        Le code d'invitation doit contenir exactement 8 caractères
+      </p>
+    )}
+  </div>
+)}
           <div className="flex items-center">
             <input
               id="rememberMe"
