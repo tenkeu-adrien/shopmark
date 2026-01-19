@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import { Lock, Gift, Check, AlertCircle, Eye, EyeOff, Mail, User, Globe } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import Image from 'next/image';
 
 // Liste des codes pays pour afficher le drapeau correspondant (optionnel)
@@ -456,7 +457,7 @@ export default function AuthPage() {
 
 {isLogin && (
   <div className="text-center pt-2">
-    <Link 
+    <Link
       href="/forgot-password"  // ← Nouvelle page
       className="text-sm text-gray-400 hover:text-amber-500 transition-colors"
     >
