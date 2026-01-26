@@ -226,33 +226,94 @@ export const AuthProvider = ({ children }) => {
   }
 };
 
-  // Connexion
-  const login = async (phone, password) => {
-    try {
-      const email = `${phone.replace(/\s/g, '')}@shopmark.com`;
-      console.log('Tentative connexion avec:', email);
+ const login = async (identifier, password, method = 'phone') => {
+  try {
+    let firebaseIdentifier;
+    
+    if (method === 'phone') {
+      // Méthode existante : transforme le téléphone en email
+      firebaseIdentifier = `${identifier.replace(/\s/g, '')}@shopmark.com`;
+      console.log('📱 Tentative connexion par téléphone:', firebaseIdentifier);
+    } 
+    else if (method === 'email') {
+      // NOUVELLE : Connexion par email
+      console.log('📧 Tentative connexion par email:', identifier);
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // 1. Chercher dans Firestore l'utilisateur avec cet email
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', identifier));
+      const querySnapshot = await getDocs(q);
       
-      // Mettre à jour la dernière connexion
-      await setDoc(doc(db, 'users', userCredential?.user?.uid), {
-        lastLogin: serverTimestamp()
-      }, { merge: true });
-
-      // console.log('✅ Connexion réussie:', userCredential.user.uid);
-      return { 
-        success: true, 
-        user: userCredential.user 
-      };
+      if (querySnapshot.empty) {
+        console.log('❌ Aucun utilisateur trouvé avec cet email');
+        return { 
+          success: false, 
+          error: 'Email ou mot de passe incorrect' 
+        };
+      }
       
-    } catch (error) {
-      console.error('❌ Erreur connexion:', error);
+      // 2. Récupérer le téléphone de l'utilisateur
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+      const userPhone = userData.phone;
+      
+      if (!userPhone) {
+        console.log('❌ Aucun téléphone associé à cet email');
+        return { 
+          success: false, 
+          error: 'Données utilisateur incomplètes' 
+        };
+      }
+      
+      console.log('📱 Téléphone trouvé pour cet email:', userPhone);
+      
+      // 3. Transformer le téléphone en format Firebase (comme d'habitude)
+      firebaseIdentifier = `${userPhone.replace(/\s/g, '')}@shopmark.com`;
+      console.log('🔑 Identifiant Firebase:', firebaseIdentifier);
+    }
+    else {
       return { 
         success: false, 
-        error: 'Numéro de téléphone ou mot de passe incorrect' 
+        error: 'Méthode d\'authentification invalide' 
       };
     }
-  };
+    
+    // Connexion Firebase avec l'identifiant formaté
+    const userCredential = await signInWithEmailAndPassword(auth, firebaseIdentifier, password);
+    
+    // Mettre à jour la dernière connexion
+    await setDoc(doc(db, 'users', userCredential?.user?.uid), {
+      lastLogin: serverTimestamp()
+    }, { merge: true });
+
+    console.log(`✅ Connexion réussie (${method}):`, userCredential.user.uid);
+    return { 
+      success: true, 
+      user: userCredential.user 
+    };
+    
+  } catch (error) {
+    console.error('❌ Erreur connexion:', error);
+    
+    // Messages d'erreur spécifiques
+    let errorMessage = 'Erreur lors de la connexion';
+    
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      errorMessage = method === 'phone' 
+        ? 'Numéro de téléphone ou mot de passe incorrect'
+        : 'Email ou mot de passe incorrect';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = method === 'phone'
+        ? 'Numéro de téléphone invalide'
+        : 'Email invalide';
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage 
+    };
+  }
+};
 
   // Déconnexion
   const logout = async () => {

@@ -51,7 +51,7 @@ console.log("ok je log des textes" )
         setUserRole(role);
         setIsAdmin(role === 'admin');
         
-        if (role !== 'admin' && pathname.startsWith('/dashboard')) {
+        if (role == 'admin' && pathname.startsWith('/dashboard')) {
           // Si l'utilisateur n'est pas admin et tente d'accéder au dashboard
           router.push('/');
           return;
