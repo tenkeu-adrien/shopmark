@@ -1,21 +1,17 @@
 import { NextResponse } from 'next/server';
-import { adminDb  ,auth} from '@/lib/firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
 import nodemailer from 'nodemailer';
 
 // Configuration de l'email
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
-  secure: true,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
   },
-  logger: true,
-  debug: true
 });
-
-
 
 // Fonction avec retry pour les opérations Firestore
 async function firestoreOperationWithRetry(operation, maxRetries = 3) {
@@ -131,12 +127,8 @@ export async function POST(request) {
 
       // Envoyer l'email avec retry
       const sendEmail = async () => {
-
-
-
-        console.log("transporteur config" ,transporter)
         await transporter.sendMail({
-    from: `"Shopmark Support" <contact@ton-transporteur.fr>`,
+          from: `"Shopmark Support" <${process.env.EMAIL_FROM || 'shopmarkofficial01@gmail.com'}>`,
           to: email,
           subject: 'Code de réinitialisation de mot de passe',
           html: `
@@ -157,14 +149,11 @@ export async function POST(request) {
       };
 
       try {
-         const result =  await sendEmail();
-         console.log("envoie email top" ,result)
+        await sendEmail();
       } catch (emailError) {
         console.error("Erreur envoi email:", emailError);
         // On ne fail pas si l'email échoue, mais on log
       }
-
-      
 
       return NextResponse.json({ 
         success: true, 
@@ -254,148 +243,89 @@ export async function POST(request) {
     }
 
     // Action 3: Réinitialiser le mot de passe
-   // Action 3: Réinitialiser le mot de passe AVEC FIREBASE ADMIN
-if (action === 'reset') {
-  if (!code || !newPassword) {
-    return NextResponse.json(
-      { error: 'Code et nouveau mot de passe requis' },
-      { status: 400 }
-    );
-  }
-
-  if (newPassword.length < 6) {
-    return NextResponse.json(
-      { error: 'Le mot de passe doit contenir au moins 6 caractères' },
-      { status: 400 }
-    );
-  }
-
-  const resetRef = adminDb.collection('passwordResets').doc(userId);
-  const resetDoc = await firestoreOperationWithRetry(async () => {
-    return await resetRef.get();
-  });
-
-  if (!resetDoc.exists) {
-    return NextResponse.json(
-      { error: 'Session expirée. Veuillez redemander un code.' },
-      { status: 410 }
-    );
-  }
-
-  const resetData = resetDoc.data();
-
-  // Vérifications finales du code OTP (inchangé)
-  if (!resetData.verified) {
-    return NextResponse.json(
-      { error: 'Le code doit être vérifié d\'abord' },
-      { status: 400 }
-    );
-  }
-
-  if (resetData.code !== code) {
-    return NextResponse.json(
-      { error: 'Code invalide' },
-      { status: 400 }
-    );
-  }
-
-  if (resetData.used) {
-    return NextResponse.json(
-      { error: 'Ce code a déjà été utilisé' },
-      { status: 410 }
-    );
-  }
-
-  try {
-    // 1. MISE À JOUR DU MOT DE PASSE DANS FIREBASE AUTH
-    // Récupère le numéro de téléphone (identifiant Firebase) depuis Firestore
-    const userPhone = userData.phone; // Ex: '+243812345678'
-
-    if (!userPhone) {
-      throw new Error('Données utilisateur incomplètes : téléphone manquant.');
-    }
-
-    // Formate l'identifiant Firebase (comme pour la connexion)
-    const firebaseIdentifier = `${userPhone.replace(/\s/g, '')}@shopmark.com`;
-
-    // Cherche l'UID Firebase (authId) via l'email ou le phone dans l'Admin SDK
-    // Option A : Recherche par email (si l'utilisateur a été créé avec cet email dans Firebase Auth)
-    let firebaseUser;
-    try {
-      firebaseUser = await auth.getUserByEmail(email.toLowerCase());
-    } catch (error) {
-      // Si non trouvé par email, recherche par l'identifiant custom (phone@shopmark.com)
-      try {
-        firebaseUser = await auth.getUserByEmail(firebaseIdentifier);
-      } catch (secondError) {
-        console.error('Utilisateur non trouvé dans Firebase Auth:', { email, firebaseIdentifier });
+    if (action === 'reset') {
+      if (!code || !newPassword) {
         return NextResponse.json(
-          { error: 'Compte d\'authentification introuvable.' },
-          { status: 404 }
+          { error: 'Code et nouveau mot de passe requis' },
+          { status: 400 }
         );
       }
-    }
 
-    // Utilise l'Admin SDK pour mettre à jour le mot de passe [citation:4]
-    // Cela évite tout hash personnalisé. Firebase gère la sécurité.
-    await auth.updateUser(firebaseUser.uid, {
-      password: newPassword
-    });
-
-    console.log(`✅ Mot de passe Firebase Auth mis à jour pour l'UID: ${firebaseUser.uid}`);
-
-    // 2. METTRE À JOUR LA DATE DANS FIRESTORE (Optionnel, pour audit)
-    await firestoreOperationWithRetry(async () => {
-      const usersRef = adminDb.collection('users').doc(userId);
-      await usersRef.update({
-        passwordLastChanged: Date.now(),
-        updatedAt: Date.now()
-      });
-    });
-
-    // 3. MARQUER LE CODE COMME UTILISÉ
-    await firestoreOperationWithRetry(async () => {
-      await resetRef.update({
-        used: true,
-        usedAt: Date.now()
-      });
-    });
-
-    // 4. SUPPRIMER LE DOCUMENT APRÈS UN DÉLAI (Nettoyage)
-    setTimeout(async () => {
-      try {
-        await resetRef.delete();
-      } catch (e) {
-        console.log("Erreur lors du nettoyage du document reset:", e);
+      if (newPassword.length < 6) {
+        return NextResponse.json(
+          { error: 'Le mot de passe doit contenir au moins 6 caractères' },
+          { status: 400 }
+        );
       }
-    }, 180000); // 3 minutes
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Mot de passe réinitialisé avec succès.' 
-    });
+      const resetRef = adminDb.collection('passwordResets').doc(userId);
+      const resetDoc = await firestoreOperationWithRetry(async () => {
+        return await resetRef.get();
+      });
 
-  } catch (error) {
-    console.error('❌ Erreur lors de la réinitialisation Firebase Auth:', error);
-    
-    // Gestion d'erreurs spécifiques Firebase Admin
-    let errorMessage = 'Erreur lors de la mise à jour du mot de passe.';
-    if (error.code === 'auth/invalid-password') {
-      errorMessage = 'Le mot de passe ne respecte pas les critères de sécurité.';
-    } else if (error.code === 'auth/user-not-found') {
-      errorMessage = 'Compte d\'authentification introuvable.';
+      if (!resetDoc.exists) {
+        return NextResponse.json(
+          { error: 'Session expirée' },
+          { status: 410 }
+        );
+      }
+
+      const resetData = resetDoc.data();
+
+      // Vérifications finales
+      if (!resetData.verified) {
+        return NextResponse.json(
+          { error: 'Le code doit être vérifié d\'abord' },
+          { status: 400 }
+        );
+      }
+
+      if (resetData.code !== code) {
+        return NextResponse.json(
+          { error: 'Code invalide' },
+          { status: 400 }
+        );
+      }
+
+      if (resetData.used) {
+        return NextResponse.json(
+          { error: 'Ce code a déjà été utilisé' },
+          { status: 410 }
+        );
+      }
+
+      // Hasher le mot de passe
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      // Mettre à jour l'utilisateur
+      await firestoreOperationWithRetry(async () => {
+        const usersRef = adminDb.collection('users').doc(userId);
+        await usersRef.update({
+          password: hashedPassword,
+          updatedAt: Date.now()
+        });
+      });
+
+      // Marquer comme utilisé
+      await firestoreOperationWithRetry(async () => {
+        await resetRef.update({
+          used: true,
+          usedAt: Date.now()
+        });
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Mot de passe réinitialisé' 
+      });
     }
 
     return NextResponse.json(
-      { 
-        error: errorMessage,
-        // Détails en développement uniquement
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
-      { status: 500 }
+      { error: 'Action non reconnue' },
+      { status: 400 }
     );
-  }
-}
 
   } catch (error) {
     console.error('Erreur complète:', {
