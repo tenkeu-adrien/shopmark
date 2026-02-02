@@ -190,7 +190,7 @@ const loadTeamData = async () => {
               <div>
                 <p className="text-gray-500 text-sm font-medium">Membres totaux</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-sm font-bold text-gray-900">{teamData.teamMembers.total}</span>
+                  <span className="text-[20px] font-bold text-gray-900">{teamData.teamMembers.total}</span>
                   <span className="text-gray-500">personnes</span>
                 </div>
               </div>
@@ -198,15 +198,15 @@ const loadTeamData = async () => {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-sm font-bold text-blue-600">{teamData.teamMembers.level1}</p>
+                  <p className="text-[18px] font-bold text-blue-600">{teamData.teamMembers.level1}</p>
                   <p className="text-xs text-gray-500">Niveau 1</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-green-600">{teamData.teamMembers.level2}</p>
+                  <p className="text-[18px] font-bold text-green-600">{teamData.teamMembers.level2}</p>
                   <p className="text-sm text-gray-500">Niveau 2</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-purple-600">{teamData.teamMembers.level3}</p>
+                  <p className="text-[18px] font-bold text-purple-600">{teamData.teamMembers.level3}</p>
                   <p className="text-sm text-gray-500">Niveau 3</p>
                 </div>
               </div>
@@ -222,7 +222,7 @@ const loadTeamData = async () => {
               <div>
                 <p className="text-gray-500 text-sm font-medium">Revenu parrainage</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-[10px] font-bold text-gray-900">
+                  <span className="text-[20px] font-bold text-gray-900">
                     {formatCurrency(teamData.commissionEarned)}
                   </span>
                 </div>
