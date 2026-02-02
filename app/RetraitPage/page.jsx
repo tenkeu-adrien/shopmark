@@ -28,7 +28,7 @@ import { auth, db } from '@/lib/firebase';
 import { financeService } from '@/lib/financeService';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
-
+import { useAuth } from "@/contexts/AuthContext";
 export default function RetraitPage() {
   const router = useRouter();
   const [amount, setAmount] = useState("");
@@ -40,7 +40,7 @@ export default function RetraitPage() {
   const [tempWalletInfo, setTempWalletInfo] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const whatsappNumber = "+1 (450) 914-1073";
-  
+   const { user, loading: authLoading } = useAuth();
     // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
   const [userInfo, setUserInfo] = useState({
@@ -67,7 +67,7 @@ export default function RetraitPage() {
   
   const [linkedWallet, setLinkedWallet] = useState({
     provider: "airtel",
-    number: "+243 81 234 5678",
+    number: user?.phone,
   });
 
   const [cryptoAddress, setCryptoAddress] = useState("");

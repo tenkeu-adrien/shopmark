@@ -46,7 +46,7 @@ import { motion } from "framer-motion";
 
 export default function MesFilleulsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useRouter(); 
   const [loading, setLoading] = useState(true);
   const [filleuls, setFilleuls] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,120 +63,7 @@ export default function MesFilleulsPage() {
     bonusSemaine: 0
   });
 
-  // Fonction pour récupérer récursivement les filleuls sur 3 niveaux
-// const getFilleulsRecursif = async (userId, niveauActuel = 1, maxNiveau = 3) => {
-//     if (niveauActuel > maxNiveau) return [];
-    
-//     const filleulsQuery = query(
-//       collection(db, 'users'),
-//       where('referrerId', '==', userId)
-//     );
-    
-//     const snapshot = await getDocs(filleulsQuery);
-//     const filleulsNiveau = [];
-    
-//     for (const filleulDoc of snapshot.docs) {
-//       const filleulData = filleulDoc.data();
-//       const filleulId = filleulDoc.id;
-      
-//       // Récupérer les investissements
-//       const userLevelsQuery = query(
-//         collection(db, 'user_levels'),
-//         where('userId', '==', filleulId)
-//       );
-//       const userLevelsSnapshot = await getDocs(userLevelsQuery);
-      
-//       // Chercher l'investissement actif (un seul possible)
-//       let investissementActif = null;
-//       let premierInvestissement = null;
-//       let status = "inactif";
-      
-//       userLevelsSnapshot.docs.forEach(levelDoc => {
-//         const levelData = levelDoc.data();
-        
-//         // Recherche de l'investissement actif (status === 'active')
-//         if (levelData.status === 'active') {
-//           investissementActif = levelData;
-//           status = "actif";
-//         }
-        
-//         // Premier investissement (pour historique)
-//         if (levelData.isFirstInvestment === true) {
-//           premierInvestissement = levelData;
-//         }
-//       });
-      
-//       // Si pas de flag isFirstInvestment, prendre le plus ancien investissement
-//       if (!premierInvestissement && userLevelsSnapshot.docs.length > 0) {
-//         const sorted = userLevelsSnapshot.docs.sort((a, b) => {
-//           const dateA = a.data().startDate?.toDate?.() || new Date(0);
-//           const dateB = b.data().startDate?.toDate?.() || new Date(0);
-//           return dateA - dateB;
-//         });
-//         premierInvestissement = sorted[0]?.data();
-//       }
-      
-//       // Montant investi = seulement le montant de l'investissement actif
-//       const montantInvesti = investissementActif ? (investissementActif.investedAmount || 0) : 0;
-      
-//       // Niveau d'investissement = celui de l'investissement actif
-//       const niveauInvestissement = investissementActif?.levelName || premierInvestissement?.levelName || "Non investi";
-      
-//       // Récupérer les commissions pour ce filleul
-//       const commissionsQuery = query(
-//         collection(db, 'transactions'),
-//         where('userId', '==', user.uid),
-//         where('type', '==', 'referral_commission'),
-//         where('metadata.referredUserId', '==', filleulId)
-//       );
-      
-//       const commissionsSnapshot = await getDocs(commissionsQuery);
-//       let bonusFilleul = 0;
-//       const bonusDetails = [];
-      
-//       commissionsSnapshot.docs.forEach(commDoc => {
-//         const commData = commDoc.data();
-//         const montant = commData.amount || 0;
-//         bonusFilleul += montant;
-//         bonusDetails.push({
-//           montant: montant,
-//           date: commData.createdAt?.toDate?.() || new Date(),
-//           niveau: commData.metadata?.commissionLevel || niveauActuel,
-//           taux: commData.metadata?.commissionRate || (niveauActuel === 1 ? 0.03 : niveauActuel === 2 ? 0.02 : 0.01)
-//         });
-//       });
-      
-//       // Taux de commission selon le niveau
-//       const commissionRate = niveauActuel === 1 ? 3 : niveauActuel === 2 ? 2 : 1;
-      
-//       filleulsNiveau.push({
-//         id: filleulId,
-//         name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
-//         phone: filleulData.phone || "Non renseigné",
-//         email: filleulData.email || "Sans email",
-//         inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
-//         montantInvesti: montantInvesti, // Seulement le montant actif
-//         montantPremierInvest: premierInvestissement?.investedAmount || 0,
-//         niveauInvestissement: niveauInvestissement, // Niveau de l'investissement actif
-//         commissionRate: commissionRate,
-//         bonusGagne: bonusFilleul,
-//         bonusDetails: bonusDetails,
-//         status: status, // "actif" seulement si a un investissement avec status === 'active'
-//         niveauParrainage: niveauActuel,
-//         lastLogin: filleulData.lastLogin?.toDate?.() || null,
-//         totalInvestissements: userLevelsSnapshot.docs.length,
-//         premierInvestissementDate: premierInvestissement?.startDate?.toDate?.() || null
-//       });
-      
-//       // Récupérer les filleuls du niveau suivant (récursif)
-//       if (niveauActuel < maxNiveau) {
-//         const filleulsSuivants = await getFilleulsRecursif(filleulId, niveauActuel + 1, maxNiveau);
-//         filleulsNiveau.push(...filleulsSuivants);
-//       }
-//     }
-    
-//     return filleulsNiveau;
-//   };
+
 const getFilleulsDataFromService = async () => {
   try {
     console.log('🔄 Chargement des filleuls via service avec cache...');
@@ -199,82 +86,7 @@ const getFilleulsDataFromService = async () => {
     }
   }, [user, authLoading]);
 
-  // const loadFilleulsData = async () => {
-
-  //   if (!user?.uid) return;
-    
-  //   try {
-  //     setLoading(true);
-  //     console.log('🔄 Chargement des données des filleuls sur 3 niveaux...');
-      
-  //     // Récupérer tous les filleuls sur 3 niveaux
-  //     const tousFilleuls = await getFilleulsRecursif(user.uid, 1, 3);
-      
-  //     console.log('👥 Tous filleuls récupérés:', tousFilleuls.length);
-      
-  //     // Calculer les statistiques
-  //     let totalInvesti = 0;
-  //     let actifsCount = 0;
-  //     let totalBonusCalc = 0;
-  //     let bonusMoisCalc = 0;
-  //     let bonusSemaineCalc = 0;
-      
-  //     const maintenant = new Date();
-  //     const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
-  //     const debutSemaine = new Date(maintenant);
-  //     debutSemaine.setDate(maintenant.getDate() - 7);
-      
-  //     tousFilleuls.forEach(filleul => {
-  //       totalInvesti += filleul.montantInvesti;
-        
-  //       if (filleul.status === 'actif') {
-  //         actifsCount++;
-  //       }
-        
-  //       totalBonusCalc += filleul.bonusGagne;
-        
-  //       // Calculer bonus du mois et semaine
-  //       filleul.bonusDetails?.forEach(detail => {
-  //         const dateBonus = detail.date;
-  //         if (dateBonus >= debutMois) {
-  //           bonusMoisCalc += detail.montant;
-  //         }
-  //         if (dateBonus >= debutSemaine) {
-  //           bonusSemaineCalc += detail.montant;
-  //         }
-  //       });
-  //     });
-      
-  //     // Trier par niveau puis par date d'inscription
-  //     const filleulsTries = tousFilleuls.sort((a, b) => {
-  //       // D'abord par niveau
-  //       if (a.niveauParrainage !== b.niveauParrainage) {
-  //         return a.niveauParrainage - b.niveauParrainage;
-  //       }
-  //       // Ensuite par date d'inscription (plus récent d'abord)
-  //       return new Date(b.inscriptionDate) - new Date(a.inscriptionDate);
-  //     });
-      
-  //     setFilleuls(filleulsTries);
-  //     setTotalBonus(totalBonusCalc);
-  //     setStats({
-  //       total: tousFilleuls.length,
-  //       actifs: actifsCount,
-  //       inactifs: tousFilleuls.length - actifsCount,
-  //       totalInvesti: totalInvesti,
-  //       bonusMois: bonusMoisCalc,
-  //       bonusSemaine: bonusSemaineCalc
-  //     });
-      
-  //   } catch (error) {
-  //     console.error('❌ Erreur chargement filleuls:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // Filtrage des filleuls
-// REMPLACER loadFilleulsData (ligne 168 à 245) PAR :
+ 
 
 const loadFilleulsData = async () => {
   if (!user?.uid) return;
@@ -563,15 +375,13 @@ const handleRefresh = () => {
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Investissement
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">
                         Niveau
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Bonus %
                       </th>
-                      {/* <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Bonus gagné
-                      </th> */}
+                      
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Statut
                       </th>
@@ -619,17 +429,17 @@ const handleRefresh = () => {
                         </td>
                         
                         <td className="px-6 py-4">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getNiveauColor(filleul.niveauParrainage)}`}>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-medium ${getNiveauColor(filleul.niveauParrainage)}`}>
                             Niveau {filleul.niveauParrainage}
                           </span>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-[10px] text-gray-500 mt-1">
                             {filleul.niveauInvestissement}
                           </div>
                         </td>
                         
                         <td className="px-6 py-4">
                           <div className="text-sm font-bold text-blue-600">{filleul.commissionRate}%</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-[10px] text-gray-500">
                             Commission niveau {filleul.niveauParrainage}
                           </div>
                         </td>
@@ -777,23 +587,7 @@ const handleRefresh = () => {
                   </div>
                 </div>
                 
-                {/* <div className="bg-white rounded-lg p-4 border border-amber-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <TrendingUp className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-900">Moyenne par filleul</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {stats.actifs > 0 
-                          ? formatCurrency(totalBonus / stats.actifs)
-                          : formatCurrency(0)
-                        }
-                      </p>
-                      <p className="text-xs text-blue-700 mt-1">Par filleul actif</p>
-                    </div>
-                  </div>
-                </div> */}
+             
               </div>
               
               <div className="mt-4 text-center">

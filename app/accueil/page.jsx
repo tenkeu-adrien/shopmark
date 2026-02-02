@@ -898,8 +898,8 @@ const handleParticipate = async (level) => {
         >
           {/* Solde Portefeuille */}
           <div className="bg-white backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
-            <Wallet className="w-8 h-8 text-blue-500 mb-3" />
-            <span className="font-bold text-xl text-[#000] mb-1">
+            <Wallet className="w-10 h-10 text-blue-500 mb-3" />
+            <span className="font-bold text-[10px] text-[#000] mb-1">
               {formatAmount(wallet?.balances?.wallet?.amount || 0)} CDF
             </span>
             <span className="font-medium text-sm text-gray-600">Solde disponible</span>
@@ -908,8 +908,8 @@ const handleParticipate = async (level) => {
 
           {/* Solde en Action */}
           <div className="bg-white backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
-            <TrendingUp className="w-8 h-8 text-emerald-500 mb-3" />
-            <span className="font-bold text-xl text-[#000] mb-1">
+            <TrendingUp className="w-10 h-10 text-emerald-500 mb-3" />
+            <span className="font-bold text-[10px] text-[#000] mb-1">
               {formatAmount(wallet?.balances?.action?.amount || 0)} CDF
             </span>
             <span className="font-medium text-sm text-gray-600">Solde investi</span>

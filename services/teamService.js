@@ -21,67 +21,180 @@ class TeamService {
 
   // ========== SERVICE POUR TEAM SECTION ==========
 
+  // async getTeamStats(userId) {
+  //   const store = useTeamStore.getState();
+    
+  //   // Vérifier le cache
+  //   const cached = store.getTeamStats(userId);
+  //   if (cached) {
+  //     return cached;
+  //   }
+    
+  //   try {
+
+  //     console.log('getTeamStats');
+      
+  //      const commissionsQuery = query(
+  //   collection(db, 'transactions'),
+  //   where('userId', '==', userId),
+  //   where('type', '==', 'referral_commission')
+  // )
+  
+  //     // 1. Récupérer les stats de base en parallèle
+  //     const [userDoc, walletDoc] = await Promise.all([
+  //       getDoc(doc(db, 'users', userId)),
+  //       getDoc(doc(db, 'wallets', userId))
+  //     ]);
+      
+  //     const invitationCode = userDoc.data()?.invitationCode || userId.substring(0, 8).toUpperCase();
+      
+  //     // 2. Calculer les membres avec approche optimisée
+  //     const teamStats = await this.calculateTeamMembersOptimized(userId);
+      
+  //     // 3. Préparer les données
+  //     const walletData = walletDoc.exists() ? walletDoc.data() : {};
+  //     const commissionEarned = walletData.stats?.referralEarnings || 0;
+  //     const totalRevenue = commissionEarned + (walletData.stats?.totalEarned || 0);
+      
+  //     const result = {
+  //       invitationCode,
+  //       invitationLink: `https://shopmark.fr/invite/${invitationCode}`,
+  //       teamMembers: {
+  //         level1: teamStats.level1,
+  //         level2: teamStats.level2,
+  //         level3: teamStats.level3,
+  //         total: teamStats.level1 + teamStats.level2 + teamStats.level3
+  //       },
+  //       totalRevenue,
+  //       commissionEarned,
+  //       levels: this.prepareCommissionLevels(
+  //         teamStats.level1,
+  //         teamStats.level2,
+  //         teamStats.level3,
+  //         teamStats.level1Investment,
+  //         teamStats.level2Investment,
+  //         teamStats.level3Investment
+  //       ),
+  //       timestamp: Date.now()
+  //     };
+      
+  //     // Mettre en cache
+  //     store.setTeamStats(userId, result);
+      
+  //     console.log('getTeamStats');
+  //     return result;
+      
+  //   } catch (error) {
+  //     console.error('Erreur getTeamStats:', error);
+  //     throw error;
+  //   }
+  // }
+
   async getTeamStats(userId) {
-    const store = useTeamStore.getState();
-    
-    // Vérifier le cache
-    const cached = store.getTeamStats(userId);
-    if (cached) {
-      return cached;
-    }
-    
-    try {
-      console.log('getTeamStats');
-      
-      // 1. Récupérer les stats de base en parallèle
-      const [userDoc, walletDoc] = await Promise.all([
-        getDoc(doc(db, 'users', userId)),
-        getDoc(doc(db, 'wallets', userId))
-      ]);
-      
-      const invitationCode = userDoc.data()?.invitationCode || userId.substring(0, 8).toUpperCase();
-      
-      // 2. Calculer les membres avec approche optimisée
-      const teamStats = await this.calculateTeamMembersOptimized(userId);
-      
-      // 3. Préparer les données
-      const walletData = walletDoc.exists() ? walletDoc.data() : {};
-      const commissionEarned = walletData.stats?.referralEarnings || 0;
-      const totalRevenue = commissionEarned + (walletData.stats?.totalEarned || 0);
-      
-      const result = {
-        invitationCode,
-        invitationLink: `https://shopmark.fr/invite/${invitationCode}`,
-        teamMembers: {
-          level1: teamStats.level1,
-          level2: teamStats.level2,
-          level3: teamStats.level3,
-          total: teamStats.level1 + teamStats.level2 + teamStats.level3
-        },
-        totalRevenue,
-        commissionEarned,
-        levels: this.prepareCommissionLevels(
-          teamStats.level1,
-          teamStats.level2,
-          teamStats.level3,
-          teamStats.level1Investment,
-          teamStats.level2Investment,
-          teamStats.level3Investment
-        ),
-        timestamp: Date.now()
-      };
-      
-      // Mettre en cache
-      store.setTeamStats(userId, result);
-      
-      console.log('getTeamStats');
-      return result;
-      
-    } catch (error) {
-      console.error('Erreur getTeamStats:', error);
-      throw error;
-    }
+  const store = useTeamStore.getState();
+  
+  // Vérifier le cache
+  const cached = store.getTeamStats(userId);
+  if (cached) {
+    return cached;
   }
+  
+  try {
+    console.log('getTeamStats');
+    
+    // 1. Récupérer les stats de base en parallèle
+    const [userDoc, walletDoc] = await Promise.all([
+      getDoc(doc(db, 'users', userId)),
+      getDoc(doc(db, 'wallets', userId))
+    ]);
+    
+    const invitationCode = userDoc.data()?.invitationCode || userId.substring(0, 8).toUpperCase();
+    
+    // 2. Calculer les membres avec approche optimisée
+    const teamStats = await this.calculateTeamMembersOptimized(userId);
+    
+    // 3. RÉCUPÉRER LES TRANSACTIONS RÉELLES
+    const commissionsQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId), // VOUS comme bénéficiaire
+      where('type', '==', 'referral_commission')
+    );
+    
+    const commissionsSnapshot = await getDocs(commissionsQuery);
+    let commissionReelle = 0;
+    let commissionsParNiveau = { niveau1: 0, niveau2: 0, niveau3: 0 };
+    
+    commissionsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const montant = data.amount || 0;
+      commissionReelle += montant;
+      
+      // Classer par niveau pour prepareCommissionLevels
+      const niveau = data.metadata?.commissionLevel || 1;
+      if (niveau === 1) commissionsParNiveau.niveau1 += montant;
+      else if (niveau === 2) commissionsParNiveau.niveau2 += montant;
+      else if (niveau === 3) commissionsParNiveau.niveau3 += montant;
+    });
+    
+    // 4. Calcul théorique (pour vérification)
+    const commissionTheorique = this.calculerCommissionTheorique(teamStats);
+    
+    // 5. Récupérer la valeur du wallet
+    const walletData = walletDoc.exists() ? walletDoc.data() : {};
+    const commissionWallet = walletData.stats?.referralEarnings || 0;
+    
+    // 6. CHOISIR LA MEILLEURE SOURCE (priorité aux transactions réelles)
+    const commissionEarned = commissionReelle > 0 ? commissionReelle : 
+                            commissionWallet > 0 ? commissionWallet : 
+                            commissionTheorique;
+    
+    const totalRevenue = commissionEarned + (walletData.stats?.totalEarned || 0);
+    
+    // 7. DEBUG LOG (important pour comprendre les différences)
+    console.log('🔍 DEBUG Commission Sources:', {
+      transactionsReelles: commissionReelle,
+      walletValue: commissionWallet,
+      calculTheorique: commissionTheorique,
+      utilise: commissionEarned,
+      niveau1Investment: teamStats.level1Investment,
+      niveau2Investment: teamStats.level2Investment,
+      niveau3Investment: teamStats.level3Investment
+    });
+    
+    const result = {
+      invitationCode,
+      invitationLink: `https://shopmark.fr/invite/${invitationCode}`,
+      teamMembers: {
+        level1: teamStats.level1,
+        level2: teamStats.level2,
+        level3: teamStats.level3,
+        total: teamStats.level1 + teamStats.level2 + teamStats.level3
+      },
+      totalRevenue,
+      commissionEarned, // VALEUR SYNCHRONISÉE
+      levels: this.prepareCommissionLevels(
+        teamStats.level1,
+        teamStats.level2,
+        teamStats.level3,
+        teamStats.level1Investment,
+        teamStats.level2Investment,
+        teamStats.level3Investment,
+        commissionsParNiveau // Passer les commissions réelles
+      ),
+      timestamp: Date.now()
+    };
+    
+    // Mettre en cache
+    store.setTeamStats(userId, result);
+    
+    console.log('getTeamStats terminé');
+    return result;
+    
+  } catch (error) {
+    console.error('Erreur getTeamStats:', error);
+    throw error;
+  }
+}
 
   // Nouvelle méthode optimisée
   async calculateTeamMembersOptimized(userId) {
@@ -100,7 +213,7 @@ class TeamService {
       // Récupérer les investissements niveau 1 en BATCH
       let level1Investment = 0;
       if (level1Users.length > 0) {
-        level1Investment = await this.getTotalInvestmentsForUsers(level1Users);
+        level1Investment = await this.getTotalInvestmentsForUsers(level1Users ,1);
       }
       
       // Niveau 2 - Avec chunks pour respecter limite 'in'
@@ -130,10 +243,11 @@ class TeamService {
         
         // Récupérer les investissements niveau 2
         if (level2Users.length > 0) {
-          level2Investment = await this.getTotalInvestmentsForUsers(level2Users);
+          level2Investment = await this.getTotalInvestmentsForUsers(level2Users,2);
           
           // Niveau 3 - Même approche
           let level3Count = 0;
+          let level3Users = []; 
           let level3Investment = 0;
           
           if (level2Users.length > 0) {
@@ -150,11 +264,12 @@ class TeamService {
             
             level3Results.forEach(result => {
               level3Count += result.docs.length;
+              level3Users.push(...result.docs.map(doc => doc.id));
             });
             
             // Note: Pour les investissements niveau 3, on pourrait les récupérer
             // mais on limite pour performance
-            level3Investment = 0; // Optionnel: Calculer si nécessaire
+          level3Investment = await this.getTotalInvestmentsForUsers(level3Users, 3);
           }
           
           return {
@@ -186,14 +301,50 @@ class TeamService {
     }
   }
 
+  async getFirstInvestmentsOnly(userIds) {
+  if (userIds.length === 0) return 0;
+  
+  try {
+    // Approche par lots plus petite pour niveau 3
+    const batchSize = 5;
+    let total = 0;
+    
+    for (let i = 0; i < userIds.length; i += batchSize) {
+      const batch = userIds.slice(i, i + batchSize);
+      
+      // Utiliser une seule requête avec 'in' pour chaque lot
+      const queryRef = query(
+        collection(db, 'user_levels'),
+        where('userId', 'in', batch),
+        where('isFirstInvestment', '==', true)
+      );
+      
+      const snapshot = await getDocs(queryRef);
+      
+      // Somme des investissements
+      snapshot.docs.forEach(doc => {
+        total += doc.data().investedAmount || 0;
+      });
+    }
+    
+    return total;
+  } catch (error) {
+    console.error('Erreur getFirstInvestmentsOnly:', error);
+    return 0;
+  }
+}
   // Récupérer les investissements totaux pour une liste d'utilisateurs
-  async getTotalInvestmentsForUsers(userIds) {
+  async getTotalInvestmentsForUsers(userIds , niveau = null) {
     if (userIds.length === 0) return 0;
     
     try {
       // Utiliser une approche par lots pour éviter trop de requêtes
       let total = 0;
       const batchSize = 10;
+
+      if (niveau == 3) {
+      return await this.getFirstInvestmentsOnly(userIds);
+    }
       
       for (let i = 0; i < userIds.length; i += batchSize) {
         const batch = userIds.slice(i, i + batchSize);
@@ -225,42 +376,100 @@ class TeamService {
 
   // ========== SERVICE POUR MES FILLEULS ==========
 
-  async getFilleulsData(userId) {
-    const store = useTeamStore.getState();
+  // async getFilleulsData(userId) {
+  //   const store = useTeamStore.getState();
     
-    // Vérifier le cache
-    const cached = store.getFilleuls(userId);
-    if (cached) {
-      return cached;
-    }
+  //   // Vérifier le cache
+  //   const cached = store.getFilleuls(userId);
+  //   if (cached) {
+  //     return cached;
+  //   }
     
-    try {
-      console.time('getFilleulsData');
+  //   try {
+  //     console.time('getFilleulsData');
       
-      // Utiliser une approche non récursive plus efficace
-      const filleuls = await this.getFilleulsNonRecursive(userId, 3);
+  //     // Utiliser une approche non récursive plus efficace
+  //     const filleuls = await this.getFilleulsNonRecursive(userId, 3);
       
-      // Calculer les statistiques
-      const stats = this.calculateFilleulsStats(filleuls);
+  //     // Calculer les statistiques
+  //     const stats = this.calculateFilleulsStats(filleuls);
       
-      const result = {
-        filleuls,
-        stats,
-        timestamp: Date.now()
-      };
+  //     const result = {
+  //       filleuls,
+  //       stats,
+  //       timestamp: Date.now()
+  //     };
       
-      // Mettre en cache
-      store.setFilleuls(userId, result);
+  //     // Mettre en cache
+  //     store.setFilleuls(userId, result);
       
-      console.timeEnd('getFilleulsData');
-      return result;
+  //     console.timeEnd('getFilleulsData');
+  //     return result;
       
-    } catch (error) {
-      console.error('Erreur getFilleulsData:', error);
-      throw error;
-    }
-  }
+  //   } catch (error) {
+  //     console.error('Erreur getFilleulsData:', error);
+  //     throw error;
+  //   }
+  // }
 
+
+  async getFilleulsData(userId) {
+  const store = useTeamStore.getState();
+  
+  // Vérifier le cache
+  const cached = store.getFilleuls(userId);
+  if (cached) {
+    return cached;
+  }
+  
+  try {
+    console.time('getFilleulsData');
+    
+    // Utiliser une approche non récursive plus efficace
+    const filleuls = await this.getFilleulsNonRecursive(userId, 3);
+    
+    // MODIFICATION IMPORTANTE : Filtrer uniquement VOS transactions
+    const filleulsAvecVosCommissions = await Promise.all(
+      filleuls.map(async (filleul) => {
+        // Récupérer uniquement les transactions où VOUS êtes le bénéficiaire
+        const commissionsSnapshot = await getDocs(query(
+          collection(db, 'transactions'),
+          where('userId', '==', userId), // VOUS comme bénéficiaire
+          where('type', '==', 'referral_commission'),
+          where('metadata.referredUserId', '==', filleul.id),
+          limit(10)
+        ));
+        
+        const bonusData = this.processCommissions(commissionsSnapshot);
+        
+        return {
+          ...filleul,
+          bonusGagne: bonusData.total, // UNIQUEMENT VOS commissions
+          bonusDetails: bonusData.details
+        };
+      })
+    );
+    
+    // Calculer les statistiques AVEC les bonnes commissions
+    const stats = this.calculateFilleulsStats(filleulsAvecVosCommissions);
+    
+    const result = {
+      filleuls: filleulsAvecVosCommissions,
+      stats,
+      timestamp: Date.now()
+    };
+    
+    // Mettre en cache
+    store.setFilleuls(userId, result);
+    
+    console.timeEnd('getFilleulsData');
+    return result;
+    
+  } catch (error) {
+    console.error('Erreur getFilleulsData:', error);
+    throw error;
+  }
+}
   // Nouvelle approche non récursive
   async getFilleulsNonRecursive(userId, maxDepth = 3) {
     const allFilleuls = [];
@@ -356,76 +565,153 @@ class TeamService {
     return filleuls;
   }
 
-  async processFilleulDoc(filleulDoc, niveau) {
-    try {
-      const filleulData = filleulDoc.data();
-      const filleulId = filleulDoc.id;
+  // async processFilleulDoc(filleulDoc, niveau) {
+  //   try {
+  //     const filleulData = filleulDoc.data();
+  //     const filleulId = filleulDoc.id;
       
-      // Récupérer les données en parallèle
-      const [userLevelsSnapshot, commissionsSnapshot] = await Promise.all([
-        getDocs(query(
-          collection(db, 'user_levels'),
-          where('userId', '==', filleulId),
-          orderBy('startDate', 'desc'),
-          limit(1)
-        )),
-        getDocs(query(
-          collection(db, 'transactions'),
-          where('userId', '==', filleulData.referrerId), // Le parrain
-          where('type', '==', 'referral_commission'),
-          where('metadata.referredUserId', '==', filleulId),
-          limit(10)
-        ))
-      ]);
+  //     // Récupérer les données en parallèle
+  //     const [userLevelsSnapshot, commissionsSnapshot] = await Promise.all([
+  //       getDocs(query(
+  //         collection(db, 'user_levels'),
+  //         where('userId', '==', filleulId),
+  //        where('isFirstInvestment', '==', true),
+  //         limit(1)
+  //       )),
+  //       getDocs(query(
+  //         collection(db, 'transactions'),
+  //         where('userId', '==', filleulData.referrerId), // Le parrain
+  //         where('type', '==', 'referral_commission'),
+  //         where('metadata.referredUserId', '==', filleulId),
+  //         limit(10)
+  //       ))
+  //     ]);
       
-      // Traiter l'investissement
-      const investissementData = this.processInvestissement(userLevelsSnapshot);
+  //     // Traiter l'investissement
+  //     const investissementData = this.processInvestissement(userLevelsSnapshot);
       
-      // Traiter les commissions
-      const bonusData = this.processCommissions(commissionsSnapshot);
+  //     // Traiter les commissions
+  //     const bonusData = this.processCommissions(commissionsSnapshot);
       
-      return {
-        id: filleulId,
-        name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
-        phone: filleulData.phone || "Non renseigné",
-        email: filleulData.email || "Sans email",
-        inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
-        montantInvesti: investissementData.montantInvesti,
-        niveauInvestissement: investissementData.niveauInvestissement,
-        commissionRate: niveau === 1 ? 3 : niveau === 2 ? 2 : 1,
-        bonusGagne: bonusData.total,
-        bonusDetails: bonusData.details,
-        status: investissementData.status,
-        niveauParrainage: niveau,
-        lastLogin: filleulData.lastLogin?.toDate?.() || null,
-        totalInvestissements: userLevelsSnapshot.size
-      };
+  //     return {
+  //       id: filleulId,
+  //       name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
+  //       phone: filleulData.phone || "Non renseigné",
+  //       email: filleulData.email || "Sans email",
+  //       inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
+  //       montantInvesti: investissementData.montantInvesti,
+  //       niveauInvestissement: investissementData.niveauInvestissement,
+  //       commissionRate: niveau === 1 ? 3 : niveau === 2 ? 2 : 1,
+  //       bonusGagne: bonusData.total,
+  //       bonusDetails: bonusData.details,
+  //       status: investissementData.status,
+  //       niveauParrainage: niveau,
+  //       lastLogin: filleulData.lastLogin?.toDate?.() || null,
+  //       totalInvestissements: userLevelsSnapshot.size
+  //     };
       
-    } catch (error) {
-      console.error('Erreur processFilleulDoc:', error);
-      return null;
-    }
-  }
+  //   } catch (error) {
+  //     console.error('Erreur processFilleulDoc:', error);
+  //     return null;
+  //   }
+  // }
 
-  processInvestissement(snapshot) {
-    if (snapshot.empty) {
-      return {
-        montantInvesti: 0,
-        niveauInvestissement: "Non investi",
-        status: "inactif"
-      };
-    }
+  // processInvestissement(snapshot) {
+  //   if (snapshot.empty) {
+  //     return {
+  //       montantInvesti: 0,
+  //       niveauInvestissement: "Non investi",
+  //       status: "inactif"
+  //     };
+  //   }
     
-    const latestDoc = snapshot.docs[0];
-    const data = latestDoc.data();
+  //   const latestDoc = snapshot.docs[0];
+  //   const data = latestDoc.data();
+    
+  //   return {
+  //     montantInvesti: data.investedAmount || 0,
+  //     niveauInvestissement: data.levelName || "Niveau inconnu",
+  //     status: data.status === 'active' ? 'actif' : 'inactif'
+  //   };
+  // }
+
+  async processFilleulDoc(filleulDoc, niveau) {
+  try {
+    const filleulData = filleulDoc.data();
+    const filleulId = filleulDoc.id;
+    
+    // SEULEMENT l'investissement (les commissions seront gérées dans getFilleulsData)
+    const userLevelsSnapshot = await getDocs(query(
+      collection(db, 'user_levels'),
+      where('userId', '==', filleulId),
+      where('isFirstInvestment', '==', true),
+      limit(1)
+    ));
+    
+    // Traiter l'investissement
+    const investissementData = this.processInvestissement(userLevelsSnapshot);
     
     return {
-      montantInvesti: data.investedAmount || 0,
-      niveauInvestissement: data.levelName || "Niveau inconnu",
-      status: data.status === 'active' ? 'actif' : 'inactif'
+      id: filleulId,
+      name: filleulData.displayName || filleulData.fullName || filleulData.phone || "Utilisateur",
+      phone: filleulData.phone || "Non renseigné",
+      email: filleulData.email || "Sans email",
+      inscriptionDate: filleulData.createdAt?.toDate?.() || new Date(),
+      montantInvesti: investissementData.montantInvesti,
+      niveauInvestissement: investissementData.niveauInvestissement,
+      commissionRate: niveau === 1 ? 3 : niveau === 2 ? 2 : 1,
+      bonusGagne: 0, // Sera rempli dans getFilleulsData
+      bonusDetails: [], // Sera rempli dans getFilleulsData
+      status: investissementData.status,
+      niveauParrainage: niveau,
+      lastLogin: filleulData.lastLogin?.toDate?.() || null,
+      totalInvestissements: userLevelsSnapshot.size
+    };
+    
+  } catch (error) {
+    console.error('Erreur processFilleulDoc:', error);
+    return null;
+  }
+}
+  processInvestissement(snapshot) {
+  if (snapshot.empty) {
+    return {
+      montantInvesti: 0,
+      niveauInvestissement: "Non investi",
+      status: "inactif"
     };
   }
-
+  
+  // Trouver le PREMIER investissement (pour la commission)
+  let premierInvestissement = null;
+  
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (data.isFirstInvestment === true) {
+      premierInvestissement = data;
+    }
+  });
+  
+  // Si on a trouvé un premier investissement, l'utiliser
+  if (premierInvestissement) {
+    return {
+      montantInvesti: premierInvestissement.investedAmount || 0, // PREMIER investissement
+      niveauInvestissement: premierInvestissement.levelName || "Niveau inconnu",
+      status: premierInvestissement.status === 'active' ? 'actif' : 'inactif',
+      premierInvestissementDate: premierInvestissement.startDate
+    };
+  }
+  
+  // Sinon, garder l'ancienne logique (dernier investissement)
+  const latestDoc = snapshot.docs[0];
+  const data = latestDoc.data();
+  
+  return {
+    montantInvesti: data.investedAmount || 0,
+    niveauInvestissement: data.levelName || "Niveau inconnu",
+    status: data.status === 'active' ? 'actif' : 'inactif'
+  };
+}
   processCommissions(snapshot) {
     let total = 0;
     const details = [];
@@ -497,35 +783,115 @@ class TeamService {
     return chunks;
   }
 
-  prepareCommissionLevels(level1, level2, level3, level1Investment, level2Investment, level3Investment) {
-    const commissionRates = [3, 2, 1];
-    const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
-    const colors = [
-      { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
-      { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
-      { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
-    ];
+  // prepareCommissionLevels(level1, level2, level3, level1Investment, level2Investment, level3Investment) {
+  //   const commissionRates = [3, 2, 1];
+  //   const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
+  //   const colors = [
+  //     { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
+  //     { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
+  //     { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
+  //   ];
 
-    return [0, 1, 2].map((index) => {
-      const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
-      const totalInvestment = index === 0 ? level1Investment : 
-                             index === 1 ? level2Investment : 
-                             index === 2 ? level3Investment : 0;
+  //   return [0, 1, 2].map((index) => {
+  //     const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
+  //     const totalInvestment = index === 0 ? level1Investment : 
+  //                            index === 1 ? level2Investment : 
+  //                            index === 2 ? level3Investment : 0;
       
-      const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
+  //     const revenue = Math.round(totalInvestment * (commissionRates[index] / 100));
       
-      return {
-        level: levelNames[index],
-        commissionRate: commissionRates[index],
-        validUsers,
-        revenue,
-        totalInvestment,
-        color: colors[index].gradient,
-        iconColor: colors[index].iconColor,
-        levelNumber: index + 1
-      };
-    });
-  }
+  //     return {
+  //       level: levelNames[index],
+  //       commissionRate: commissionRates[index],
+  //       validUsers,
+  //       revenue,
+  //       totalInvestment,
+  //       color: colors[index].gradient,
+  //       iconColor: colors[index].iconColor,
+  //       levelNumber: index + 1
+  //     };
+  //   });
+  // }
+
+//   prepareCommissionLevels(level1, level2, level3, level1Investment, level2Investment, level3Investment, commissionsReels = null) {
+//   const commissionRates = [3, 2, 1];
+//   const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
+//   const colors = [
+//     { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
+//     { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
+//     { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
+//   ];
+
+//   return [0, 1, 2].map((index) => {
+//     const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
+//     const totalInvestment = index === 0 ? level1Investment : 
+//                            index === 1 ? level2Investment : 
+//                            index === 2 ? level3Investment : 0;
+    
+//     // UTILISER LES COMMISSIONS RÉELLES SI DISPONIBLES
+//     const revenue = commissionsReels 
+//       ? (index === 0 ? commissionsReels.niveau1 : 
+//          index === 1 ? commissionsReels.niveau2 : 
+//          commissionsReels.niveau3)
+//       : Math.round(totalInvestment * (commissionRates[index] / 100));
+    
+//     return {
+//       level: levelNames[index],
+//       commissionRate: commissionRates[index],
+//       validUsers,
+//       revenue, // MAINTENANT C'EST LE MONTANT RÉEL
+//       totalInvestment,
+//       color: colors[index].gradient,
+//       iconColor: colors[index].iconColor,
+//       levelNumber: index + 1
+//     };
+//   });
+// }
+calculerCommissionTheorique(teamStats) {
+  // Calcul précis des commissions basé sur le premier investissement
+  const commissionNiveau1 = Math.round(teamStats.level1Investment * 0.03); // 3%
+  const commissionNiveau2 = Math.round(teamStats.level2Investment * 0.02); // 2%
+  const commissionNiveau3 = Math.round(teamStats.level3Investment * 0.01); // 1%
+  
+  return commissionNiveau1 + commissionNiveau2 + commissionNiveau3;
+}
+
+prepareCommissionLevels(level1, level2, level3, level1Investment, level2Investment, level3Investment, commissionsReels = null) {
+  const commissionRates = [3, 2, 1];
+  const levelNames = ["Menbre A", "Menbre B", "Menbre C"];
+  const colors = [
+    { gradient: "from-orange-500 to-amber-400", iconColor: "text-orange-500" },
+    { gradient: "from-blue-500 to-cyan-400", iconColor: "text-blue-500" },
+    { gradient: "from-green-500 to-emerald-400", iconColor: "text-green-500" }
+  ];
+
+  return [0, 1, 2].map((index) => {
+    const validUsers = index === 0 ? level1 : index === 1 ? level2 : index === 2 ? level3 : 0;
+    const totalInvestment = index === 0 ? level1Investment : 
+                           index === 1 ? level2Investment : 
+                           index === 2 ? level3Investment : 0;
+    
+    // UTILISER LES COMMISSIONS RÉELLES SI DISPONIBLES
+    const revenue = commissionsReels 
+      ? (index === 0 ? commissionsReels.niveau1 : 
+         index === 1 ? commissionsReels.niveau2 : 
+         commissionsReels.niveau3)
+      : Math.round(totalInvestment * (commissionRates[index] / 100));
+    
+    return {
+      level: levelNames[index],
+      commissionRate: commissionRates[index],
+      validUsers,
+      revenue, // MONTANT RÉEL
+      totalInvestment,
+      color: colors[index].gradient,
+      iconColor: colors[index].iconColor,
+      levelNumber: index + 1
+    };
+  });
+}
+
+
 }
 
 export default new TeamService();
