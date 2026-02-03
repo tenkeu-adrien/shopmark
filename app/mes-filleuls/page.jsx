@@ -332,7 +332,7 @@ const handleRefresh = () => {
             {totalBonus > 0 && (
               <>
                 <span className="hidden sm:inline">•</span>
-                <span className="text-amber-600 font-medium">
+                <span className="text-amber-600 font-medium text-[18px]">
                   Bonus total: {formatCurrency(totalBonus)}
                 </span>
               </>

@@ -222,7 +222,7 @@ const loadTeamData = async () => {
               <div>
                 <p className="text-gray-500 text-sm font-medium">Revenu parrainage</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-[20px] font-bold text-gray-900">
+                  <span className="text-[30px] font-bold text-gray-900">
                     {formatCurrency(teamData.commissionEarned)}
                   </span>
                 </div>
