@@ -224,7 +224,7 @@ export default function ProfilePage() {
                 <Wallet className="w-6 h-6 text-amber-600" />
               </div>
               <h3 className="text-sm font-medium text-gray-600">Solde disponible</h3>
-              <p className="text-[10px] font-bold text-amber-600">{formatAmount(user.walletBalance)} CDF</p>
+              <p className="text-[18px] font-bold text-amber-600">{formatAmount(user.walletBalance)} CDF</p>
             </div>
           </div>
 
@@ -235,7 +235,7 @@ export default function ProfilePage() {
                 <TrendingUp className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-sm font-medium text-gray-600">Solde investi</h3>
-              <p className="text-[10px] font-bold text-blue-600">{formatAmount(user.actionBalance)} CDF</p>
+              <p className="text-[18px] font-bold text-blue-600">{formatAmount(user.actionBalance)} CDF</p>
             </div>
           </div>
         </div>
