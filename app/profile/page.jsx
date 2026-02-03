@@ -140,14 +140,19 @@ export default function ProfilePage() {
       console.error("Erreur lors de la déconnexion:", error);
     }
   };
+const formatAmount = (amount) => {
+  if (amount === null || amount === undefined) return '0';
+  
+  return new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+};
 
-  const formatAmount = (amount) => {
-    if (amount === null || amount === undefined) return '0';
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
+// Utilisation :
+// formatAmount(32000.00); // → "32 000"
+// formatAmount(52650.00); // → "52 650"
+// formatAmount(1000);     // → "1 000"
 
   // Afficher l'indicateur de chargement
   if (loading && !walletData && !userData) {
@@ -216,15 +221,15 @@ export default function ProfilePage() {
         </div>
 
         {/* Section Financière */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           {/* Portefeuille */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 h-[120px]">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 h-[120px] W-[120px]">
             <div className="flex flex-col items-center text-center">
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-center mb-3">
                 <Wallet className="w-6 h-6 text-amber-600" />
               </div>
               <h3 className="text-sm font-medium text-gray-600">Solde disponible</h3>
-              <p className="text-[18px] font-bold text-amber-600">{formatAmount(user.walletBalance)} CDF</p>
+              <p className="text-[17px] font-bold text-amber-600">{formatAmount(user.walletBalance)} <span className="text-xs"> CDF</span></p>
             </div>
           </div>
 
@@ -235,7 +240,7 @@ export default function ProfilePage() {
                 <TrendingUp className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-sm font-medium text-gray-600">Solde investi</h3>
-              <p className="text-[18px] font-bold text-blue-600">{formatAmount(user.actionBalance)} CDF</p>
+              <p className="text-[17px] font-bold text-blue-600">{formatAmount(user.actionBalance)} <span className="text-xs"> CDF</span></p>
             </div>
           </div>
         </div>
