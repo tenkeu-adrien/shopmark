@@ -38,40 +38,72 @@ import {
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
+import { useAppStore } from '@/lib/store/appStore';
 export default function CriteoWelcomePage() { 
   const { user, loading: authLoading } = useAuth();
-  const [wallet, setWallet] = useState(null);
-  const [userLevels, setUserLevels] = useState([]);
-  const [levels, setLevels] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [participating, setParticipating] = useState({});
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [teamStats, setTeamStats] = useState(null);
+  // const [wallett, setWallet] = useState(null);
+  // const [userLevelss, setUserLevels] = useState([]);
+  // const [levelss, setLevels] = useState([]);
+  // const [loadingf, setLoading] = useState(true);
+
   const router = useRouter();
   const url = "https://shopmark.fr";
   const inviteCode = user?.invitationCode || user?.uid.substring(0, 8).toUpperCase();
   const inviteLinkCode = `${url}/invite/${inviteCode}`;
-console.log("page accueille" ,levels)
+// console.log("page accueille" ,levels)
   // Vérification d'authentification
- const abortControllerRef = useRef(null);
-  const realtimeListenersRef = useRef([]);
-  const retryCountRef = useRef(0);
-  const maxRetries = 3;
-  const isInitialLoadRef = useRef(true);
-  const timerIdRef = useRef(null)
+ 
+
+const {
+    walletData: wallet,
+    userLevelsData: userLevels,
+    levelsData: levels,
+    userData: userProfile, // CHANGÉ: userData au lieu de userProfileData
+    teamStatsData: teamStats,
+    loadingStates,
+    fetchWalletData,
+    fetchLevelsData,
+    fetchUserLevelsData,
+    fetchUserData, // CHANGÉ: fetchUserData au lieu de fetchUserProfileData
+    fetchTeamStatsData,
+    invalidateCache
+  } = useAppStore();
+  
+  // const loading = loadingStates.wallet || loadingStates.levels || loadingStates.userLevels;
+  
+  // Chargement optimisé
+useEffect(() => {
+    if (!user?.uid) return;
+    
+    const loadData = async () => {
+      try {
+        await Promise.allSettled([
+          fetchWalletData(user.uid, false),
+          fetchLevelsData(false),
+          fetchUserLevelsData(user.uid, false),
+          fetchUserData(user.uid, false), // CHANGÉ
+          fetchTeamStatsData(user.uid, false)
+        ]);
+      } catch (error) {
+        console.error('Erreur chargement:', error);
+      }
+    };
+    
+    loadData();
+    
+    // SUPPRIMER tout le reste du useEffect complexe
+    // Les listeners temps réel seront gérés autrement
+  }, [user?.uid]);
 
 
-  useEffect(() => {
-    // Attends que le chargement soit fini pour éviter des redirections inutiles
-    if (!loading && user) {
-      router.replace('/accueil');
-    } else if (!loading && !user) {
-      router.replace('/auth/login');
-    }
-  }, [user, loading]);
+   const loading = loadingStates.wallet || loadingStates.levels || loadingStates.userLevels;
+  
+  // SUPPRIMER tous les useState locaux (wallett, userLevelss, etc.)
+  const [participating, setParticipating] = useState({});
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+
 
 
 
@@ -79,330 +111,330 @@ console.log("page accueille" ,levels)
 
  // Ajouter ces hooks en haut de votre composant
 
-useEffect(() => {
-    // Annuler toute requête précédente
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+// useEffect(() => {
+//     // Annuler toute requête précédente
+//     if (abortControllerRef.current) {
+//       abortControllerRef.current.abort();
+//     }
     
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
+//     abortControllerRef.current = new AbortController();
+//     const signal = abortControllerRef.current.signal;
 
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
+//     if (!user?.uid) {
+//       setLoading(false);
+//       return;
+//     }
 
-    // Éviter les appels multiples pendant le chargement
-    if (loading && !isInitialLoadRef.current) {
-      return;
-    }
+//     // Éviter les appels multiples pendant le chargement
+//     if (loading && !isInitialLoadRef.current) {
+//       return;
+//     }
 
-    setLoading(true);
-    setError(null);
+//     setLoading(true);
+//     setError(null);
 
-    const loadUserData = async () => {
-      try {
-        // Vérifier si le signal est aborté
-        if (signal.aborted) {
-          console.log('Chargement annulé pour user:', user.uid);
-          return;
-        }
+//     const loadUserData = async () => {
+//       try {
+//         // Vérifier si le signal est aborté
+//         if (signal.aborted) {
+//           console.log('Chargement annulé pour user:', user.uid);
+//           return;
+//         }
 
-        // CORRECTION: Vérifier si le timer existe déjà
-        const timerId = `Chargement-${user.uid.substring(0, 8)}`;
-        if (console.time && typeof console.time === 'function') {
-          try {
-            console.time(timerId);
-          } catch (timerError) {
-            console.log('Timer déjà existant, continuation...');
-          }
-        }
+//         // CORRECTION: Vérifier si le timer existe déjà
+//         const timerId = `Chargement-${user.uid.substring(0, 8)}`;
+//         if (console.time && typeof console.time === 'function') {
+//           try {
+//             console.time(timerId);
+//           } catch (timerError) {
+//             console.log('Timer déjà existant, continuation...');
+//           }
+//         }
 
-        // Utiliser un batch de requêtes pour minimiser les appels
-        const batchPromises = [];
+//         // Utiliser un batch de requêtes pour minimiser les appels
+//         const batchPromises = [];
 
-        // 1. Données de base (parallèle)
-        const basePromises = [
-          getDoc(doc(db, 'users', user.uid)),
-          getDoc(doc(db, 'wallets', user.uid)),
-          getDocs(query(collection(db, 'levels'), orderBy('order')))
-        ];
+//         // 1. Données de base (parallèle)
+//         const basePromises = [
+//           getDoc(doc(db, 'users', user.uid)),
+//           getDoc(doc(db, 'wallets', user.uid)),
+//           getDocs(query(collection(db, 'levels'), orderBy('order')))
+//         ];
 
-        const [userDoc, walletDoc, levelsSnapshot] = await Promise.all(basePromises);
+//         const [userDoc, walletDoc, levelsSnapshot] = await Promise.all(basePromises);
 
-        // Vérifier annulation
-        if (signal.aborted) return;
+//         // Vérifier annulation
+//         if (signal.aborted) return;
 
-        // Traitements immédiats
-        if (userDoc.exists()) {
-          setUserProfile({ id: userDoc.id, ...userDoc.data() });
-        }
+//         // Traitements immédiats
+//         if (userDoc.exists()) {
+//           setUserProfile({ id: userDoc.id, ...userDoc.data() });
+//         }
 
-        let walletData = null;
-        if (walletDoc.exists()) {
-          walletData = { id: walletDoc.id, ...walletDoc.data() };
-          setWallet(walletData);
-        } else {
-          walletData = await createFixedWallet(user.uid);
-          setWallet(walletData);
-        }
+//         let walletData = null;
+//         if (walletDoc.exists()) {
+//           walletData = { id: walletDoc.id, ...walletDoc.data() };
+//           setWallet(walletData);
+//         } else {
+//           walletData = await createFixedWallet(user.uid);
+//           setWallet(walletData);
+//         }
 
-        // Niveaux avec memoization
-        if (levelsSnapshot.size > 0) {
-          const newLevels = levelsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+//         // Niveaux avec memoization
+//         if (levelsSnapshot.size > 0) {
+//           const newLevels = levelsSnapshot.docs.map(doc => ({
+//             id: doc.id,
+//             ...doc.data()
+//           }));
           
-          // Comparaison profonde pour éviter re-rendus
-          const hasChanged = newLevels.length !== levels.length || 
-            newLevels.some((level, idx) => 
-              !levels[idx] || level.levelId !== levels[idx].levelId
-            );
+//           // Comparaison profonde pour éviter re-rendus
+//           const hasChanged = newLevels.length !== levels.length || 
+//             newLevels.some((level, idx) => 
+//               !levels[idx] || level.levelId !== levels[idx].levelId
+//             );
           
-          if (hasChanged) {
-            setLevels(newLevels);
-          }
-        }
+//           if (hasChanged) {
+//             setLevels(newLevels);
+//           }
+//         }
 
-        // 2. Données dépendantes (série mais optimisées) - CORRECTION: utiliser limit
-        const userLevelsSnap = await getDocs(
-          query(
-            collection(db, 'user_levels'),
-            where('userId', '==', user.uid),
-            orderBy('startDate', 'desc'),
-            limit(50) // ← MAINTENANT IMPORTÉ CORRECTEMENT
-          )
-        );
+//         // 2. Données dépendantes (série mais optimisées) - CORRECTION: utiliser limit
+//         const userLevelsSnap = await getDocs(
+//           query(
+//             collection(db, 'user_levels'),
+//             where('userId', '==', user.uid),
+//             orderBy('startDate', 'desc'),
+//             limit(50) // ← MAINTENANT IMPORTÉ CORRECTEMENT
+//           )
+//         );
 
-        if (!signal.aborted) {
-          const newUserLevels = userLevelsSnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setUserLevels(newUserLevels);
-        }
+//         if (!signal.aborted) {
+//           const newUserLevels = userLevelsSnap.docs.map(doc => ({
+//             id: doc.id,
+//             ...doc.data()
+//           }));
+//           setUserLevels(newUserLevels);
+//         }
 
-        // 3. Stats d'équipe (avec timeout pour éviter blocage)
-        const statsPromise = new Promise((resolve) => {
-          timerIdRef.current = setTimeout(async () => {
-            if (!signal.aborted) {
-              await loadTeamStats(user.uid);
-            }
-            resolve();
-          }, 100);
-        });
+//         // 3. Stats d'équipe (avec timeout pour éviter blocage)
+//         const statsPromise = new Promise((resolve) => {
+//           timerIdRef.current = setTimeout(async () => {
+//             if (!signal.aborted) {
+//               await loadTeamStats(user.uid);
+//             }
+//             resolve();
+//           }, 100);
+//         });
 
-        batchPromises.push(statsPromise);
+//         batchPromises.push(statsPromise);
 
-        await Promise.all(batchPromises);
+//         await Promise.all(batchPromises);
 
-        // CORRECTION: Fin du timer sécurisé
-        if (console.timeEnd && typeof console.timeEnd === 'function') {
-          try {
-            console.timeEnd(timerId);
-          } catch (timerError) {
-            // Ignorer l'erreur de timer
-          }
-        }
+//         // CORRECTION: Fin du timer sécurisé
+//         if (console.timeEnd && typeof console.timeEnd === 'function') {
+//           try {
+//             console.timeEnd(timerId);
+//           } catch (timerError) {
+//             // Ignorer l'erreur de timer
+//           }
+//         }
         
-        isInitialLoadRef.current = false;
+//         isInitialLoadRef.current = false;
 
-      } catch (error) {
-        // Ignorer les erreurs d'annulation
-        if (error.name === 'AbortError') {
-          console.log('Chargement annulé proprement');
-          return;
-        }
+//       } catch (error) {
+//         // Ignorer les erreurs d'annulation
+//         if (error.name === 'AbortError') {
+//           console.log('Chargement annulé proprement');
+//           return;
+//         }
         
-        console.error('Erreur détaillée:', error);
+//         console.error('Erreur détaillée:', error);
         
-        // Gestion d'erreur spécifique
-        if (error.code === 'failed-precondition') {
-          setError('Veuillez rafraîchir la page');
-        } else if (error.code === 'unavailable') {
-          setError('Problème de connexion. Vérifiez votre internet');
-        } else {
-          setError('Erreur lors du chargement. Veuillez réessayer.');
-        }
-      } finally {
-        if (!signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
+//         // Gestion d'erreur spécifique
+//         if (error.code === 'failed-precondition') {
+//           setError('Veuillez rafraîchir la page');
+//         } else if (error.code === 'unavailable') {
+//           setError('Problème de connexion. Vérifiez votre internet');
+//         } else {
+//           setError('Erreur lors du chargement. Veuillez réessayer.');
+//         }
+//       } finally {
+//         if (!signal.aborted) {
+//           setLoading(false);
+//         }
+//       }
+//     };
 
-    loadUserData();
+//     loadUserData();
 
-    // Configuration des listeners temps réel avec retry
-    const setupRealtimeWithRetry = () => {
-      try {
-        // Nettoyer les anciens listeners
-        cleanupRealtimeListeners();
+//     // Configuration des listeners temps réel avec retry
+//     const setupRealtimeWithRetry = () => {
+//       try {
+//         // Nettoyer les anciens listeners
+//         cleanupRealtimeListeners();
 
-        // Wallet listener avec debounce
-        const walletListener = onSnapshot(
-          doc(db, 'wallets', user.uid),
-          (snap) => {
-            if (snap.exists()) {
-              setWallet(prev => {
-                const newData = { id: snap.id, ...snap.data() };
-                // Comparaison optimisée
-                if (prev && JSON.stringify(prev) === JSON.stringify(newData)) {
-                  return prev;
-                }
-                return newData;
-              });
-            }
-          },
-          (error) => {
-            console.warn('Erreur écoute wallet:', error);
-            if (retryCountRef.current < maxRetries) {
-              retryCountRef.current++;
-              setTimeout(setupRealtimeWithRetry, 1000 * retryCountRef.current);
-            }
-          }
-        );
+//         // Wallet listener avec debounce
+//         const walletListener = onSnapshot(
+//           doc(db, 'wallets', user.uid),
+//           (snap) => {
+//             if (snap.exists()) {
+//               setWallet(prev => {
+//                 const newData = { id: snap.id, ...snap.data() };
+//                 // Comparaison optimisée
+//                 if (prev && JSON.stringify(prev) === JSON.stringify(newData)) {
+//                   return prev;
+//                 }
+//                 return newData;
+//               });
+//             }
+//           },
+//           (error) => {
+//             console.warn('Erreur écoute wallet:', error);
+//             if (retryCountRef.current < maxRetries) {
+//               retryCountRef.current++;
+//               setTimeout(setupRealtimeWithRetry, 1000 * retryCountRef.current);
+//             }
+//           }
+//         );
 
-        realtimeListenersRef.current.push(walletListener);
-        retryCountRef.current = 0; // Reset sur succès
+//         realtimeListenersRef.current.push(walletListener);
+//         retryCountRef.current = 0; // Reset sur succès
 
-      } catch (error) {
-        console.error('Erreur configuration listeners:', error);
-      }
-    };
+//       } catch (error) {
+//         console.error('Erreur configuration listeners:', error);
+//       }
+//     };
 
-    // Nettoyer les listeners
-    const cleanupRealtimeListeners = () => {
-      realtimeListenersRef.current.forEach(unsubscribe => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-      realtimeListenersRef.current = [];
-    };
+//     // Nettoyer les listeners
+//     const cleanupRealtimeListeners = () => {
+//       realtimeListenersRef.current.forEach(unsubscribe => {
+//         if (typeof unsubscribe === 'function') {
+//           unsubscribe();
+//         }
+//       });
+//       realtimeListenersRef.current = [];
+//     };
 
-    // Démarrer les listeners après un délai
-    const listenerTimer = setTimeout(setupRealtimeWithRetry, 1000);
+//     // Démarrer les listeners après un délai
+//     const listenerTimer = setTimeout(setupRealtimeWithRetry, 1000);
 
-    // Cleanup complet
-    return () => {
-      console.log('🧼 Cleanup pour user:', user?.uid);
+//     // Cleanup complet
+//     return () => {
+//       console.log('🧼 Cleanup pour user:', user?.uid);
       
-      // Annuler le contrôleur d'abort
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+//       // Annuler le contrôleur d'abort
+//       if (abortControllerRef.current) {
+//         abortControllerRef.current.abort();
+//       }
       
-      // Nettoyer tous les timers
-      clearTimeout(listenerTimer);
-      if (timerIdRef.current) {
-        clearTimeout(timerIdRef.current);
-      }
+//       // Nettoyer tous les timers
+//       clearTimeout(listenerTimer);
+//       if (timerIdRef.current) {
+//         clearTimeout(timerIdRef.current);
+//       }
       
-      // Nettoyer tous les listeners
-      cleanupRealtimeListeners();
-    };
+//       // Nettoyer tous les listeners
+//       cleanupRealtimeListeners();
+//     };
 
-  }, [user?.uid]) // Dépendance unique
+//   }, [user?.uid]) // Dépendance unique
 
-const createFixedWallet = async (userId) => {
-    try {
-      const walletRef = doc(db, 'wallets', userId);
-      const now = serverTimestamp();
+// const createFixedWallet = async (userId) => {
+//     try {
+//       const walletRef = doc(db, 'wallets', userId);
+//       const now = serverTimestamp();
       
-      const walletData = {
-        userId,
-        userEmail: user?.email || '',
-        userPhone: user?.phone || '',
-        balances: {
-          wallet: {
-            amount: 0,
-            currency: 'CDF',
-            lastUpdated: now
-          },
-          action: {
-            amount: 0,
-            currency: 'CDF',
-            lastUpdated: now
-          },
-          totalDeposited: {
-            amount: 0,
-            currency: 'CDF',
-            lastUpdated: now
-          }
-        },
-        stats: {
-          totalDeposited: 0,
-          totalWithdrawn: 0,
-          totalInvested: 0,
-          totalEarned: 0,
-          referralEarnings: 0,
-          lastDepositAt: null,
-          lastWithdrawalAt: null,
-          lastInvestmentAt: null
-        },
-        createdAt: now,
-        updatedAt: now,
-        version: 1
-      };
+//       const walletData = {
+//         userId,
+//         userEmail: user?.email || '',
+//         userPhone: user?.phone || '',
+//         balances: {
+//           wallet: {
+//             amount: 0,
+//             currency: 'CDF',
+//             lastUpdated: now
+//           },
+//           action: {
+//             amount: 0,
+//             currency: 'CDF',
+//             lastUpdated: now
+//           },
+//           totalDeposited: {
+//             amount: 0,
+//             currency: 'CDF',
+//             lastUpdated: now
+//           }
+//         },
+//         stats: {
+//           totalDeposited: 0,
+//           totalWithdrawn: 0,
+//           totalInvested: 0,
+//           totalEarned: 0,
+//           referralEarnings: 0,
+//           lastDepositAt: null,
+//           lastWithdrawalAt: null,
+//           lastInvestmentAt: null
+//         },
+//         createdAt: now,
+//         updatedAt: now,
+//         version: 1
+//       };
 
-      await setDoc(walletRef, walletData);
-      return {
-        id: userId,
-        ...walletData
-      };
-    } catch (error) {
-      console.error('Erreur création wallet:', error);
-      throw error;
-    }
-  };
+//       await setDoc(walletRef, walletData);
+//       return {
+//         id: userId,
+//         ...walletData
+//       };
+//     } catch (error) {
+//       console.error('Erreur création wallet:', error);
+//       throw error;
+//     }
+//   };
 
-const loadTeamStats = async (userId) => {
-    try {
-      // Niveau 1 (direct)
-      const level1Query = query(
-        collection(db, 'users'),
-        where('referrerId', '==', userId)
-      );
-      const level1Snap = await getDocs(level1Query);
-      const level1Count = level1Snap.docs.length;
+// const loadTeamStats = async (userId) => {
+//     try {
+//       // Niveau 1 (direct)
+//       const level1Query = query(
+//         collection(db, 'users'),
+//         where('referrerId', '==', userId)
+//       );
+//       const level1Snap = await getDocs(level1Query);
+//       const level1Count = level1Snap.docs.length;
 
-      // Niveau 2
-      const level1Users = level1Snap.docs.map(doc => doc.id);
-      let level2Count = 0;
-      if (level1Users.length > 0) {
-        const level2Query = query(
-          collection(db, 'users'),
-          where('referrerId', 'in', level1Users.slice(0, 10)) // Limiter pour Firestore
-        );
-        const level2Snap = await getDocs(level2Query);
-        level2Count = level2Snap.docs.length;
+//       // Niveau 2
+//       const level1Users = level1Snap.docs.map(doc => doc.id);
+//       let level2Count = 0;
+//       if (level1Users.length > 0) {
+//         const level2Query = query(
+//           collection(db, 'users'),
+//           where('referrerId', 'in', level1Users.slice(0, 10)) // Limiter pour Firestore
+//         );
+//         const level2Snap = await getDocs(level2Query);
+//         level2Count = level2Snap.docs.length;
         
-        // Niveau 3
-        const level2Users = level2Snap.docs.map(doc => doc.id);
-        let level3Count = 0;
-        if (level2Users.length > 0) {
-          const level3Query = query(
-            collection(db, 'users'),
-            where('referrerId', 'in', level2Users.slice(0, 10)) // Limiter pour Firestore
-          );
-          const level3Snap = await getDocs(level3Query);
-          level3Count = level3Snap.docs.length;
-        }
+//         // Niveau 3
+//         const level2Users = level2Snap.docs.map(doc => doc.id);
+//         let level3Count = 0;
+//         if (level2Users.length > 0) {
+//           const level3Query = query(
+//             collection(db, 'users'),
+//             where('referrerId', 'in', level2Users.slice(0, 10)) // Limiter pour Firestore
+//           );
+//           const level3Snap = await getDocs(level3Query);
+//           level3Count = level3Snap.docs.length;
+//         }
 
-        setTeamStats({
-          level1: level1Count,
-          level2: level2Count,
-          level3: level3Count,
-          total: level1Count + level2Count + level3Count
-        });
-      }
-    } catch (error) {
-      console.error('Erreur chargement stats équipe:', error);
-    }
-  };
+//         setTeamStats({
+//           level1: level1Count,
+//           level2: level2Count,
+//           level3: level3Count,
+//           total: level1Count + level2Count + level3Count
+//         });
+//       }
+//     } catch (error) {
+//       console.error('Erreur chargement stats équipe:', error);
+//     }
+//   };
 
   // Vérifier l'éligibilité au changement de niveau (progression irréversible)
   const canSwitchToLevel = useCallback((targetLevel) => {

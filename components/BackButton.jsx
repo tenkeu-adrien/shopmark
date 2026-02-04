@@ -3,7 +3,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
+import Link from "next/link";
 export default function BackButton({
   className = "",
   iconClassName = "",
@@ -22,8 +22,9 @@ export default function BackButton({
   };
 
   return (
-    <button
-      onClick={handleClick}
+    <Link
+      // onClick={handleClick}
+        href="/"
       className={`
         flex items-center gap-2 
         text-gray-600 hover:text-gray-900 
@@ -34,6 +35,6 @@ export default function BackButton({
     >
       <ArrowLeft className={`w-5 h-5 ${iconClassName}`} />
       {showText && <span className="text-sm sm:text-base">{text}</span>}
-    </button>
+    </Link>
   );
 }

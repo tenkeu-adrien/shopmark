@@ -7,6 +7,7 @@ import ProgressBar from "@/components/ProgressBar";
 import { Metadata } from 'next';
 import { defaultMetadata } from "./default-metadata";
 import TeamCacheProvider from '@/components/TeamCacheProvider';
+import AppCacheProvider from "@/components/AppCacheProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -30,6 +31,7 @@ export default function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
            <TeamCacheProvider />
+            <AppCacheProvider />
           {children}
           <WebTabFooter />
         </AuthProvider>

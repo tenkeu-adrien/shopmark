@@ -7,104 +7,48 @@ import { financeService } from '@/lib/financeService';
 import { onAuthStateChanged } from 'firebase/auth';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react';
-
+import { useTransactionsStore } from '@/lib/store/transactionsStore';
 export default function TasksPage() {
   const [activeView, setActiveView] = useState('retraits');
   const [user, setUser] = useState(null);
-  const [transactions, setTransactions] = useState({
-    retraits: [],
-    investissements: []
-  });
-  const [isLoading, setIsLoading] = useState(true);
+ 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+
+
+const {
+    transactionsData,
+    loadingStates,
+    fetchTransactionsData,
+    invalidateCache
+  } = useTransactionsStore();
+  
+  const loading = loadingStates.transactions;
+  
+  const transactions = transactionsData;
+  
+ useEffect(() => {
+    if (user?.uid) {
+      fetchTransactionsData(user.uid, false);
+    }
+  }, [user?.uid, fetchTransactionsData]);
   const [adminNotes, setAdminNotes] = useState('');
 console.log("task loader" , transactions);
 
   // Récupérer l'utilisateur connecté
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        await loadTransactions(currentUser.uid);
-      } else {
-        // Si pas d'utilisateur, utiliser les données de démonstration
-        setTransactions({
-          retraits: retraitsDataDemo,
-          investissements: investissementsDataDemo
-        });
-        setIsLoading(false);
-      }
-    });
 
-    return () => unsubscribe();
-  }, []);
 
-  // Charger les transactions depuis le backend
-  const loadTransactions = async (userId) => {
-    try {
-      setIsLoading(true);
-      const userTransactions = await financeService.getUserTransactions(userId);
-      
-      if (userTransactions) {
-        // Traiter les retraits
-        const retraits = userTransactions.withdrawals.map(transaction => ({
-          id: transaction.withdrawalId,
-          libelle: getTransactionLabel(transaction),
-          date: formatDate(transaction.createdAt),
-          montant: transaction.amount,
-          status: transaction.status,
-          recipientName: transaction.recipientName,
-          recipientPhone: transaction.recipientPhone,
-          paymentMethod: transaction.paymentMethod,
-          fees: transaction.fees,
-          netAmount: transaction.netAmount,
-          adminNotes: transaction.adminNotes,
-          metadata: transaction.metadata,
-          createdAt: transaction.createdAt
-        }));
-
-        // Traiter les investissements/dépôts
-        const investissements = userTransactions.deposits.map(transaction => ({
-          id: transaction.depositId,
-          libelle: getTransactionLabel(transaction),
-          date: formatDate(transaction.createdAt),
-          montant: transaction.amount,
-          status: transaction.status,
-          paymentMethod: transaction.paymentMethod,
-          agentNumber: transaction.agentNumber,
-          transactionId: transaction.transactionId,
-          totalAmount: transaction.totalAmount,
-          adminNotes: transaction.adminNotes,
-          metadata: transaction.metadata,
-          createdAt: transaction.createdAt
-        }));
-
-        setTransactions({
-          retraits: retraits.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-          investissements: investissements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        });
-      }
-    } catch (error) {
-      console.error('Erreur chargement transactions:', error);
-      // En cas d'erreur, utiliser les données de démonstration
-      setTransactions({
-        retraits: retraitsDataDemo,
-        investissements: investissementsDataDemo
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Rafraîchir les transactions
   const handleRefresh = async () => {
-    if (user) {
+    if (user?.uid) {
       setRefreshing(true);
-      await loadTransactions(user.uid);
+      invalidateCache();
+      await fetchTransactionsData(user.uid, true);
       setRefreshing(false);
     }
   };
+  
 
   // Formater la date
   const formatDate = (dateString) => {
@@ -215,7 +159,7 @@ console.log("task loader" , transactions);
       alert('Une erreur est survenue. Veuillez réessayer.');
     }
   };
-
+  const currentTransactions = transactionsData[activeView] || [];
   // Fonction pour formater les montants
   const formatMontant = (montant) => {
     return montant?.toLocaleString('fr-FR') || '0';
@@ -249,7 +193,7 @@ console.log("task loader" , transactions);
           
           <button
             onClick={handleRefresh}
-            disabled={isLoading || refreshing}
+            disabled={loading || refreshing}
             className="p-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
@@ -283,7 +227,7 @@ console.log("task loader" , transactions);
       </div>
 
       {/* Indicateur de chargement */}
-      {isLoading && (
+      {loading && (
         <div className="flex justify-center items-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
           <span className="ml-3 text-gray-600">Chargement des transactions...</span>
@@ -291,7 +235,7 @@ console.log("task loader" , transactions);
       )}
 
       {/* Message si aucune transaction */}
-      {!isLoading && transactions[activeView].length === 0 && (
+      {!loading && currentTransactions.length === 0 && (
         <div className="text-center py-8">
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -309,9 +253,9 @@ console.log("task loader" , transactions);
       )}
 
       {/* Liste des transactions */}
-      {!isLoading && transactions[activeView].length > 0 && (
+      {!loading && currentTransactions.length > 0 && (
         <div className="space-y-4">
-          {transactions[activeView].map((item) => (
+          {currentTransactions.map((item) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 20 }}

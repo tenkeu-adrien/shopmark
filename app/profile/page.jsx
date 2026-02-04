@@ -22,21 +22,25 @@ import BackButton from "@/components/BackButton";
 import { useState, useEffect } from "react"; // Ajouté
 import { db } from "@/lib/firebase"; // Ajouté
 import { doc, getDoc } from "firebase/firestore"; // Ajouté
-
+import { useAppStore } from '@/lib/store/appStore';
 export default function ProfilePage() {
   const { user: authUser, logout } = useAuth();
   const router = useRouter();
   
   // États pour les données Firebase
-  const [walletData, setWalletData] = useState(null);
+  const [walletDataq, setWalletData] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const whatsappNumber = "+1 (450) 914-1073";
+
+  const {
+    userProfileData,
+    walletData,
+    loadingStates
+  } = useAppStore();
   
-    // Nettoyer le numéro pour l'URL WhatsApp
     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
-  // Charger les données depuis Firebase
   useEffect(() => {
     if (!authUser?.uid) return;
     
@@ -114,11 +118,9 @@ export default function ProfilePage() {
   }, [authUser?.uid]);
   
   // Données utilisateur (avec fallback si chargement en cours)
-  const user = {
-    name: userData?.fullName || "Chargement...",
-    phone: userData?.phone || authUser?.phone || "Chargement...",
-    totalWithdrawal: walletData?.stats?.totalWithdrawn || "0.0",
-    status: userData?.status === 'VIP' ? "VIP" : "Standard",
+   const user = {
+    name: userProfileData?.fullName || "Chargement...",
+    phone: userProfileData?.phone || authUser?.phone || "Chargement...",
     walletBalance: walletData?.balances?.wallet?.amount || "0.0",
     actionBalance: walletData?.balances?.action?.amount || "0.0"
   };
@@ -126,7 +128,6 @@ export default function ProfilePage() {
   // Options du menu
   const menuOptions = [
     { id: 1, icon: Wallet, label: "Historique des revenus", href: "/revenue-history" },
-    // { id: 2, icon: TrendingUp, label: "Niveaux d'investissement", href: "/dashboard" },
     { id: 3, icon: Download, label: "Télécharger l'application", href: "/install" },
     { id: 4, icon: Building, label: "A propos de nous", href: "/about-us" },
     { id: 5, icon: Headphones, label: "Service client", href:`https://wa.me/${cleanedNumber}` },
@@ -149,10 +150,7 @@ const formatAmount = (amount) => {
   }).format(amount);
 };
 
-// Utilisation :
-// formatAmount(32000.00); // → "32 000"
-// formatAmount(52650.00); // → "52 650"
-// formatAmount(1000);     // → "1 000"
+
 
   // Afficher l'indicateur de chargement
   if (loading && !walletData && !userData) {
@@ -206,9 +204,7 @@ const formatAmount = (amount) => {
                   <Phone className="w-4 h-4 mr-2" />
                   <span className="font-medium">{user.phone}</span>
                 </div>
-                {/* <p className="text-sm text-gray-600">
-                  Retrait total commandé : <span className="font-bold text-amber-600"> CDF {formatAmount(user.totalWithdrawal)}</span>
-                </p> */}
+               
               </div>
               
               {/* Statut */}
@@ -223,9 +219,9 @@ const formatAmount = (amount) => {
         {/* Section Financière */}
         <div className="grid grid-cols-2 gap-2">
           {/* Portefeuille */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 h-[120px] W-[200px]">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 h-[120px] mb-9">
             <div className="flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-center mb-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-center mb-3">
                 <Wallet className="w-6 h-6 text-amber-600" />
               </div>
               <h3 className="text-sm font-medium text-gray-600">Solde disponible</h3>

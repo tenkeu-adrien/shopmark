@@ -1,7 +1,827 @@
+// "use client";
+
+// import { useState, useEffect } from "react";
+// import { motion, AnimatePresence } from "framer-motion";
+// import { withdrawalProfileService } from '@/lib/withdrawalProfileService'; // AJOUTER CETTE LIGNE
+// import { useWithdrawalProfile } from '@/hooks/useWithdrawalProfile'; // AJOUTER CETTE LIGNE
+
+// import {
+//   ArrowLeft,
+//   Wallet,
+//   CreditCard,
+//   Smartphone,
+//   Banknote,
+//   Shield,
+//   Clock,
+//   CheckCircle,
+//   AlertCircle,
+//   Copy,
+//   ChevronRight,
+//   Zap,
+//   Smartphone as AirtelIcon,
+//   Smartphone as OrangeIcon,
+//   Smartphone as MPesaIcon,
+//   Edit2,
+//   Save,
+//   X,
+//   Loader2
+// } from "lucide-react";
+// import { useRouter } from "next/navigation";
+// import { auth, db } from '@/lib/firebase';
+// import { financeService } from '@/lib/financeService';
+// import { onAuthStateChanged } from 'firebase/auth';
+// import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+// import { useAuth } from "@/contexts/AuthContext";
+
+// export default function RetraitPage() {
+//   const router = useRouter();
+//   const [amount, setAmount] = useState("");
+//   const [selectedMethod, setSelectedMethod] = useState(null);
+//   const [accountBalance, setAccountBalance] = useState(0);
+//   const [isProcessing, setIsProcessing] = useState(false);
+//   const [copiedField, setCopiedField] = useState(null);
+//   const [isEditing, setIsEditing] = useState(false);
+//   const [tempWalletInfo, setTempWalletInfo] = useState("");
+//   const [transactionId, setTransactionId] = useState("");
+//   const whatsappNumber = "+1 (450) 914-1073";
+//    const { user, loading: authLoading } = useAuth();
+//     // Nettoyer le numéro pour l'URL WhatsApp
+//     const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
+//   const [userInfo, setUserInfo] = useState({
+//     uid: "",
+//     email: "",
+//     phone: "",
+//     name: ""
+//   });
+  
+  
+//   // NOUVEAU: Utilisation du hook de profil
+//   const { 
+//     profile, 
+//     loading: profileLoading, 
+//     saveProfile, 
+//     updateProfile,
+//     source,
+//     hasProfile
+//   } = useWithdrawalProfile(userInfo.uid, userInfo);
+  
+//   // NOUVEAU: États pour les agents dynamiques
+//   const [dynamicAgents, setDynamicAgents] = useState({
+//     airtelAgent: { number: "", name: "" },
+//     orangeAgent: { number: "", name: "" },
+//     mpesaAgent: { number: "", name: "" }
+//   });
+//   const [agentsLoading, setAgentsLoading] = useState(true);
+  
+//   const [agentsInfo, setAgentsInfo] = useState({
+//     airtelAgent: "0986343739",
+//     orangeAgent: "0841366703",
+//     mpesaAgent: "0971234567",
+//   });
+  
+//  const [linkedWallet, setLinkedWallet] = useState({
+//     provider: profile?.provider || "orange",
+//     number: profile?.phoneNumber || userInfo.phone || "",
+//   });
+
+//   const [cryptoAddress, setCryptoAddress] = useState("");
+
+//   useEffect(() => {
+//     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+//       if (currentUser) {
+//         setUserInfo({
+//           uid: currentUser.uid,
+//           email: currentUser.email,
+//           phone: currentUser.phoneNumber || '',
+//           name: currentUser.displayName || ''
+//         });
+
+//         try {
+//           const walletRef = doc(db, 'wallets', currentUser.uid);
+//           const walletSnap = await getDoc(walletRef);
+          
+//           if (walletSnap.exists()) {
+//             const walletData = walletSnap.data();
+//             const availableBalance = walletData.balances?.wallet?.amount || 0;
+//             setAccountBalance(availableBalance);
+//           } else {
+//             setAccountBalance(0);
+//           }
+//         } catch (error) {
+//           console.error('Erreur chargement solde:', error);
+//           setAccountBalance(0);
+//         }
+//       } else {
+//         router.push('/auth/login');
+//       }
+//     });
+
+//     return () => unsubscribe();
+//   }, [router]);
+
+
+
+//     // NOUVEAU: Mettre à jour linkedWallet quand le profil change
+//   useEffect(() => {
+//     if (profile && !profileLoading) {
+//       setLinkedWallet({
+//         provider: profile.provider || "orange",
+//         number: profile.phoneNumber || userInfo.phone || ""
+//       });
+//     }
+//   }, [profile, profileLoading, userInfo]);
+//   // NOUVEAU: Charger les agents depuis Firestore
+//   useEffect(() => {
+//     const loadAgents = async () => {
+//       try {
+//         setAgentsLoading(true);
+//         const agentsQuery = query(
+//           collection(db, 'portefeuilles'),
+//           where('status', '==', 'active')
+//         );
+//         const snapshot = await getDocs(agentsQuery);
+        
+//         const agents = {
+//           airtelAgent: { number: "", name: "" },
+//           orangeAgent: { number: "", name: "" },
+//           mpesaAgent: { number: "", name: "" }
+//         };
+
+//         snapshot.docs.forEach(doc => {
+//           const data = doc.data();
+//           switch(data.provider) {
+//             case 'airtel':
+//               agents.airtelAgent = { number: data.number || "", name: data.name || "" };
+//               break;
+//             case 'orange':
+//               agents.orangeAgent = { number: data.number || "", name: data.name || "" };
+//               break;
+//             case 'mpesa':
+//               agents.mpesaAgent = { number: data.number || "", name: data.name || "" };
+//               break;
+//           }
+//         });
+
+//         setDynamicAgents(agents);
+//         // Mettre à jour agentsInfo avec les numéros dynamiques
+//         setAgentsInfo({
+//           airtelAgent: agents.airtelAgent.number || "0986343739",
+//           orangeAgent: agents.orangeAgent.number || "0841366703",
+//           mpesaAgent: agents.mpesaAgent.number || "0971234567",
+//         });
+//       } catch (error) {
+//         console.error('Erreur chargement agents:', error);
+//       } finally {
+//         setAgentsLoading(false);
+//       }
+//     };
+
+//     loadAgents();
+//   }, []);
+
+//   const paymentMethods = [
+//     {
+//       id: "orange",
+//       name: "Orange Money",
+//       icon: <OrangeIcon className="w-6 h-6" />,
+//       description: "Transfert mobile Orange",
+//       processingTime: "Moins de 30min",
+//       fees: "10%",
+//       minAmount: 1500,
+//       maxAmount: 1000000000000,
+//       color: "from-orange-500 to-orange-600",
+//       ussdCode: "*144#",
+//       agentNumber: dynamicAgents.orangeAgent.number || "0841366703",
+//       instructions: [
+//         "1. cadran: *144#",
+//         "2. Sélectionnez 2:CDF",
+//         "3. Sélectionnez 3:Je retire l'argent",
+//         "4. Sélectionnez 1:Retrait Agent(Numéro ou code agent)",
+//         "5. Entrer Numéro: " + (dynamicAgents.orangeAgent.number || "0841366703"),
+//         "6. Montant CDF: [montant]",
+//         "7. Entrer le Code Pin pour confirmer"
+//       ]
+//     },
+//     {
+//       id: "airtel",
+//       name: "Airtel Money",
+//       icon: <AirtelIcon className="w-6 h-6" />,
+//       description: "Transfert mobile Airtel",
+//       processingTime: "Moins de 30min",
+//       fees: "10%",
+//       minAmount: 1500,
+//       maxAmount: 1000000000000,
+//       color: "from-red-500 to-red-600",
+//       ussdCode: "*501#",
+//       agentNumber: dynamicAgents.airtelAgent.number || "0986343739",
+//       instructions: [
+//         "1. cadran: *501#",
+//         "2. Sélectionnez 2.CDF",
+//         "3. Sélectionnez 2.Retrait d'argent",
+//         "4. Sélectionnez 1.Aupres d'un Agent",
+//         "5. Entrer Code d'agent/numero: " + (dynamicAgents.airtelAgent.number || "0986343739"),
+//         "6. Entrer montant: [montant]",
+//         "7. Sélectionnez 1.Oui",
+//         "8. Entrez votre PIN"
+//       ]
+//     },
+//     {
+//       id: "mpesa",
+//       name: "M-Pesa",
+//       icon: <MPesaIcon className="w-6 h-6" />,
+//       description: "Transfert mobile M-Pesa",
+//       processingTime: "Moins de 30min",
+//       fees: "10%",
+//       minAmount: 1500,
+//       maxAmount: 1000000000000,
+//       color: "from-green-500 to-green-600",
+//       ussdCode: "*150*60#",
+//       agentNumber: dynamicAgents.mpesaAgent.number || "0971234567",
+//       instructions: [
+//         "1. Ouvrez l'application M-Pesa",
+//         "2. Sélectionnez 'Envoyer de l'argent'",
+//         "3. Entrez le numéro: " + (dynamicAgents.mpesaAgent.number || "0971234567"),
+//         "4. Saisissez le montant: [montant] CDF",
+//         "5. Confirmez la transaction",
+//         "6. Entrez votre PIN pour valider"
+//       ]
+//     },
+//     {
+//       id: "crypto",
+//       name: "Crypto (BEP20)",
+//       fees: "10%",
+//       icon: <Zap className="w-6 h-6" />,
+//       description: "Transfert en crypto BEP20",
+//       processingTime: "15-30min",
+//       fees: "10%",
+//       minAmount: 5000,
+//       maxAmount: 1000000000000,
+//       color: "from-amber-500 to-amber-600",
+//       ussdCode: "BEP20",
+//       agentNumber: "Crypto",
+//       instructions: [
+//         "1. Préparez votre adresse BEP20 valide",
+//         "2. Saisissez l'adresse BEP20 ci-dessous",
+//         "3. Vérifiez l'adresse avant confirmation",
+//         "4. Confirmez le retrait pour générer la demande",
+//         "5. Nous vous enverrons les fonds à cette adresse"
+//       ]
+//     },
+//   ];
+
+//   const quickAmounts = [10000, 50000, 100000, 250000, 500000];
+
+//   const calculateFees = () => {
+//     if (!amount || !selectedMethod) return 0;
+//     const numericAmount = parseInt(amount.replace(/\D/g, "")) || 0;
+    
+//     if (selectedMethod === "crypto") {
+//       return Math.round(numericAmount * 0.05);
+//     }
+//     return Math.round(numericAmount * 0.10);
+//   };
+
+//   const generateTransactionId = () => {
+//     const timestamp = Date.now().toString();
+//     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+//     return `WDR${timestamp.slice(-8)}${random}`;
+//   };
+
+//   const fees = calculateFees();
+//   const numericAmount = parseInt(amount.replace(/\D/g, "")) || 0;
+//   const totalReceived = numericAmount - fees;
+//   const selectedMethodData = paymentMethods.find(m => m.id === selectedMethod);
+
+//   const formatAmount = (value) => {
+//     return value.toLocaleString("fr-FR");
+//   };
+
+//   const handleAmountChange = (e) => {
+//     const value = e.target.value.replace(/\D/g, "");
+//     setAmount(value);
+    
+//     if (value && parseInt(value) >= 3000) {
+//       if (!transactionId) {
+//         setTransactionId(generateTransactionId());
+//       }
+//     }
+//   };
+
+//   const handleQuickAmount = (quickAmount) => {
+//     setAmount(quickAmount.toString());
+//     setTransactionId(generateTransactionId());
+//   };
+
+//   const handleMaxAmount = () => {
+//     const maxAllowed = Math.min(
+//       accountBalance,
+//       selectedMethodData?.maxAmount || accountBalance
+//     );
+//     setAmount(maxAllowed.toString());
+//     setTransactionId(generateTransactionId());
+//   };
+
+//   const copyToClipboard = (text, field) => {
+//     navigator.clipboard.writeText(text);
+//     setCopiedField(field);
+//     setTimeout(() => setCopiedField(null), 2000);
+//   };
+
+//   // NOUVEAU: Récupérer le nom de l'agent
+//   const getAgentName = () => {
+//     if (!selectedMethod) return "";
+//     switch(selectedMethod) {
+//       case "orange": return dynamicAgents.orangeAgent.name || "Agent Orange";
+//       case "airtel": return dynamicAgents.airtelAgent.name || "Agent Airtel";
+//       case "mpesa": return dynamicAgents.mpesaAgent.name || "Agent M-Pesa";
+//       default: return "";
+//     }
+//   };
+
+//   // NOUVEAU: Fonction pour sauvegarder le profil
+//   const handleSaveProfile = async () => {
+//     if (!userInfo.uid) {
+//       alert("Veuillez vous connecter pour sauvegarder le profil");
+//       return;
+//     }
+
+//     const profileData = {
+//       phoneNumber: linkedWallet.number,
+//       recipientName: profile?.recipientName || userInfo.name || "",
+//       provider: linkedWallet.provider
+//     };
+
+//     const result = await saveProfile(profileData);
+    
+//     if (result.success) {
+//       alert("✅ Profil de retrait sauvegardé !\nVos informations seront utilisées pour les prochains retraits.");
+//     } else {
+//       alert(`❌ Erreur: ${result.error}`);
+//     }
+//   };
+
+//   const validateWithdrawal = () => {
+//     if (!numericAmount) {
+//       alert("Veuillez saisir un montant à retirer.");
+//       return false;
+//     }
+
+//     if (selectedMethodData && numericAmount < selectedMethodData.minAmount) {
+//       alert(`Le montant minimum est de ${formatAmount(selectedMethodData.minAmount)} CDF.`);
+//       return false;
+//     }
+
+//     if (selectedMethodData && numericAmount > selectedMethodData.maxAmount) {
+//       alert(`Le montant maximum est de ${formatAmount(selectedMethodData.maxAmount)} CDF.`);
+//       return false;
+//     }
+
+//     if (numericAmount > accountBalance) {
+//       alert(`Votre solde actuel est de ${formatAmount(accountBalance)} CDF.`);
+//       return false;
+//     }
+
+//     if (!selectedMethod) {
+//       alert("Veuillez sélectionner un moyen de retrait.");
+//       return false;
+//     }
+
+//     if (selectedMethod === "crypto") {
+//       if (!cryptoAddress.trim()) {
+//         alert("Veuillez saisir votre adresse BEP20.");
+//         return false;
+//       }
+      
+//       if (!cryptoAddress.startsWith("0x") || cryptoAddress.length !== 42) {
+//         alert("Veuillez saisir une adresse BEP20 valide (commence par 0x et fait 42 caractères).");
+//         return false;
+//       }
+//     } else {
+//       // NOUVEAU: Utiliser le nom du profil ou de l'utilisateur
+//       const recipientNameToUse = profile?.recipientName || userInfo.name || "";
+//       if (!recipientNameToUse.trim()) {
+//         alert("Veuillez saisir le nom du bénéficiaire.");
+//         return false;
+//       }
+//     }
+
+//     return true;
+//   };
+
+//   const handleWithdrawal = async () => {
+//     if (!validateWithdrawal()) return;
+
+//     if (!userInfo.uid) {
+//       alert('Veuillez vous connecter pour effectuer un retrait.');
+//       router.push('/auth/login');
+//       return;
+//     }
+
+//     setIsProcessing(true);
+
+//     try {
+//       const withdrawalData = {
+//          profileSource: source,
+//         amount: numericAmount,
+//         fees: fees,
+//         netAmount: totalReceived,
+//         paymentMethod: selectedMethodData?.name || '',
+//         recipientPhone: selectedMethod === "crypto" ? "" : linkedWallet.number,
+//          recipientName: selectedMethod === "crypto" ? "" : recipientNameToUse,
+//         cryptoAddress: selectedMethod === "crypto" ? cryptoAddress : "",
+//         agentNumber: getAgentNumber(),
+//         agentName: getAgentName(),
+//         userPhone: userInfo.phone,
+//         userEmail: userInfo.email,
+//         userName: userInfo.name,
+//         transactionId: selectedMethod !== "crypto" ? transactionId : null
+//       };
+
+//       const result = await financeService.createWithdrawal(userInfo.uid, withdrawalData);
+
+//       setIsProcessing(false);
+
+//       if (result.success) {
+//         let message = `✅ Demande de retrait soumise !\n\n` +
+//           `ID: ${result.withdrawalId}\n` +
+//           `Montant: ${formatAmount(numericAmount)} CDF\n` +
+//           `Frais: ${formatAmount(fees)} CDF\n` +
+//           `À recevoir: ${formatAmount(totalReceived)} CDF\n` +
+//           `Moyen: ${selectedMethodData?.name}\n` +
+//           `Agent: ${getAgentName()}\n`;
+        
+//         if (selectedMethod === "crypto") {
+//           message += `Adresse: ${cryptoAddress}\n\n`;
+//         } else {
+//           message += `Numéro: ${linkedWallet.number}\n` +
+//                      `Nom: ${recipientName}\n\n`;
+//         }
+        
+//         message += `Votre demande est en attente de validation.\n` +
+//           `Le virement sera effectué après approbation admin.`;
+        
+//         alert(message);
+//                 // NOUVEAU: Si pas de profil, proposer de sauvegarder
+//         if (!hasProfile && selectedMethod !== "crypto") {
+//           const saveProfile = confirm("Voulez-vous sauvegarder ces informations pour vos prochains retraits ?");
+//           if (saveProfile) {
+//             await handleSaveProfile();
+//           }
+//         }
+        
+//         setAmount("");
+//         setSelectedMethod(null);
+//         setCryptoAddress("");
+//         setRecipientName(userInfo.name || '');
+//       } else {
+//         alert(`❌ Erreur: ${result.error}`);
+//       }
+//     } catch (error) {
+//       setIsProcessing(false);
+//       alert(`❌ Erreur lors de la soumission: ${error.message}`);
+//     }
+//   };
+
+//   const handleEditWallet = () => {
+//     setTempWalletInfo(linkedWallet.number);
+//     setIsEditing(true);
+//   };
+
+//   const handleSaveWallet = () => {
+//     if (tempWalletInfo.trim() === "") {
+//       alert("Veuillez saisir un numéro valide.");
+//       return;
+//     }
+//       if (hasProfile) {
+//       updateProfile({
+//         phoneNumber: tempWalletInfo,
+//         provider: linkedWallet.provider
+//       });
+    
+
+//     setLinkedWallet({
+//       ...linkedWallet,
+//       number: tempWalletInfo
+//     });
+//     setIsEditing(false);
+//   };
+
+//   const handleCancelEdit = () => {
+//     setIsEditing(false);
+//   };
+
+//   const changeLinkedWallet = (provider) => {
+//     if (provider === "crypto") {
+//       setLinkedWallet({
+//         provider: "crypto",
+//         number: "Adresse BEP20 à saisir"
+//       });
+//     } else {
+//       // NOUVEAU: Utiliser le profil si disponible
+//       const phoneNumber = profile?.phoneNumber || 
+//         (provider === "orange" ? "0898765432" : 
+//          provider === "airtel" ? "0992345678" : 
+//          "0821234567");
+      
+//       setLinkedWallet({
+//         provider: provider,
+//         number: phoneNumber
+//       });
+//     }
+//     setSelectedMethod(provider);
+    
+//     if (provider !== "crypto") {
+//       setCryptoAddress("");
+//     }
+//   };
+
+//   const getInstructions = () => {
+//     if (!selectedMethodData) return [];
+//     return selectedMethodData.instructions.map(instruction => 
+//       instruction.replace("[montant]", formatAmount(totalReceived))
+//     );
+//   };
+
+//   const getAgentNumber = () => {
+//     if (!selectedMethodData) return "";
+//     return selectedMethodData.agentNumber;
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+//       <div className="bg-white border-b border-gray-200">
+//         <div className="max-w-4xl mx-auto px-4 py-6">
+//           <div className="flex items-center justify-between">
+//             <button
+//               onClick={() => router.back()}
+//               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+//             >
+//               <ArrowLeft className="w-5 h-5" />
+//               <span>Retour</span>
+//             </button>
+            
+//             <div className="text-center">
+//               <h1 className="text-2xl font-bold text-gray-900">Retrait de fonds</h1>
+//               <p className="text-gray-600 text-sm mt-1">Retirez vos gains sur votre compte</p>
+//             </div>
+            
+//             <div className="w-20"></div> 
+//           </div>
+//         </div>
+//       </div>
+
+//       <div className="max-w-4xl mx-auto px-4 py-8">
+//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+//           <div className="lg:col-span-2 space-y-8">
+//             <motion.div
+//               initial={{ opacity: 0, y: -20 }}
+//               animate={{ opacity: 1, y: 0 }}
+//               className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg"
+//             >
+//               <div className="flex items-center justify-between">
+//                 <div>
+//                   <div className="flex items-center gap-3 mb-2">
+//                     <Wallet className="w-6 h-6" />
+//                     <h2 className="text-xl font-semibold">Solde disponible</h2>
+//                   </div>
+//                   <p className="text-3xl font-bold mb-4">
+//                     {formatAmount(accountBalance)} CDF
+//                   </p>
+//                   <p className="text-blue-100 text-sm">
+//                     Solde actuel pour retraits et investissements
+//                   </p>
+//                 </div>
+                
+//                 <button
+//                   onClick={handleMaxAmount}
+//                   className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-medium"
+//                   disabled={accountBalance <= 0}
+//                 >
+//                   Retirer tout
+//                 </button>
+//               </div>
+              
+//               <div className="mt-4 flex items-center gap-2 text-blue-100">
+//                 <Shield className="w-4 h-4" />
+//                 <span className="text-sm">Transfert 100% sécurisé</span>
+//               </div>
+//             </motion.div>
+
+//             <motion.div
+//               initial={{ opacity: 0, y: 20 }}
+//               animate={{ opacity: 1, y: 0 }}
+//               transition={{ delay: 0.1 }}
+//               className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6"
+//             >
+//               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+//                 <Smartphone className="w-6 h-6 text-blue-600" />
+//                 {selectedMethod === "crypto" ? "Adresse de réception Crypto" : "Portefeuille de réception"}
+//               </h2>
+              
+//               <p className="text-gray-600 mb-6 text-sm">
+//                 {selectedMethod === "crypto" 
+//                   ? "Saisissez votre adresse BEP20 pour recevoir vos cryptomonnaies."
+//                   : "Ce portefeuille sera utilisé pour recevoir vos retraits. Vous pouvez le modifier à tout moment."
+//                 }
+//               </p>
+              
+//               {selectedMethod === "crypto" ? (
+//                 <div className="bg-amber-50 rounded-xl p-5 border border-amber-200">
+//                   <div className="mb-3">
+//                     <label className="block text-sm font-medium text-gray-700 mb-2">
+//                       Votre adresse BEP20
+//                     </label>
+//                     <input
+//                       type="text"
+//                       value={cryptoAddress}
+//                       onChange={(e) => setCryptoAddress(e.target.value)}
+//                       placeholder="0x..."
+//                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none font-mono"
+//                     />
+//                     <p className="text-xs text-gray-500 mt-2">
+//                       Saisissez une adresse BEP20 valide (commence par 0x et fait 42 caractères)
+//                     </p>
+//                   </div>
+                  
+//                   {cryptoAddress && (
+//                     <div className="flex items-center justify-between mt-4 p-3 bg-amber-100 rounded-lg">
+//                       <div>
+//                         <p className="text-sm font-medium text-amber-900">Adresse saisie :</p>
+//                         <p className="text-xs font-mono text-amber-800 truncate">{cryptoAddress}</p>
+//                       </div>
+//                       <button
+//                         onClick={() => copyToClipboard(cryptoAddress, "cryptoAddress")}
+//                         className="flex items-center gap-1 text-amber-700 hover:text-amber-800 text-sm"
+//                       >
+//                         <Copy className="w-4 h-4" />
+//                         {copiedField === "cryptoAddress" ? "Copié !" : "Copier"}
+//                       </button>
+//                     </div>
+//                   )}
+//                 </div>
+//               ) : (
+//                 <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+//                   <div className="flex items-center justify-between mb-3">
+//                     <div className="flex items-center gap-3">
+//                       <div className="p-2 bg-blue-100 rounded-lg">
+//                         {linkedWallet.provider === "orange" ? <OrangeIcon className="w-5 h-5 text-orange-600" /> :
+//                          linkedWallet.provider === "airtel" ? <AirtelIcon className="w-5 h-5 text-red-600" /> :
+//                          <MPesaIcon className="w-5 h-5 text-green-600" />}
+//                       </div>
+//                       <div>
+//                         <span className="font-medium text-gray-700">
+//                           {linkedWallet.provider === "orange" ? "Orange Money" :
+//                            linkedWallet.provider === "airtel" ? "Airtel Money" : "M-Pesa"}
+//                         </span>
+//                         <p className="text-sm text-gray-500">Portefeuille actuellement lié</p>
+//                       </div>
+//                     </div>
+                    
+//                     <button
+//                       onClick={handleEditWallet}
+//                       className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+//                     >
+//                       <Edit2 className="w-4 h-4" />
+//                       Modifier
+//                     </button>
+//                   </div>
+                  
+//                   {isEditing ? (
+//                     <div className="space-y-3">
+//                       <div className="flex gap-2">
+//                         <input
+//                           type="text"
+//                           value={tempWalletInfo}
+//                           onChange={(e) => setTempWalletInfo(e.target.value)}
+//                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+//                           placeholder="Saisissez le nouveau numéro"
+//                         />
+//                         <button
+//                           onClick={handleSaveWallet}
+//                           className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
+//                         >
+//                           <Save className="w-4 h-4" />
+//                           Enregistrer
+//                         </button>
+//                         <button
+//                           onClick={handleCancelEdit}
+//                           className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg flex items-center gap-2"
+//                         >
+//                           <X className="w-4 h-4" />
+//                           Annuler
+//                         </button>
+//                       </div>
+//                       <p className="text-xs text-gray-500">
+//                         Vous pouvez utiliser un numéro différent de celui utilisé pour créer votre compte.
+//                       </p>
+//                     </div>
+//                   ) : (
+//                     <div className="flex items-center justify-between">
+//                       <div>
+//                         <p className="text-lg font-semibold text-gray-900">{linkedWallet.number}</p>
+//                                               <p className="text-sm text-gray-500 mt-1">
+//                           {hasProfile 
+//                             ? "Ce numéro provient de votre profil sauvegardé."
+//                             : "Ce numéro peut être modifié à tout moment selon vos préférences"}
+//                         </p>
+//                       </div>
+//                       <button
+//                         onClick={() => copyToClipboard(linkedWallet.number, "wallet")}
+//                         className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
+//                       >
+//                         <Copy className="w-4 h-4" />
+//                         {copiedField === "wallet" ? "Copié !" : "Copier"}
+//                       </button>
+//                     </div>
+//                   )}
+//                 </div>
+//               )}
+
+                              
+//                 {/* NOUVEAU: Bouton pour sauvegarder le profil */}
+//                 {selectedMethod !== "crypto" && !hasProfile && (
+//                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+//                     <div className="flex items-center justify-between">
+//                       <div>
+//                         <p className="text-sm font-medium text-green-800">
+//                           💾 Sauvegarder ces informations ?
+//                         </p>
+//                         <p className="text-xs text-green-600">
+//                           Enregistrez ce numéro et ce nom pour vos prochains retraits
+//                         </p>
+//                       </div>
+//                       <button
+//                         onClick={handleSaveProfile}
+//                         className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
+//                       >
+//                         Sauvegarder le profil
+//                       </button>
+//                     </div>
+//                   </div>
+//                 )}
+              
+//               <div className="mt-6">
+//                 <h3 className="text-sm font-medium text-gray-600 mb-3">
+//                   Sélectionner un autre moyen
+//                 </h3>
+//                 <div className="flex flex-wrap gap-3">
+//                   <button
+//                     onClick={() => changeLinkedWallet("orange")}
+//                     className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+//                       linkedWallet.provider === "orange" && selectedMethod !== "crypto"
+//                         ? "bg-orange-50 border-orange-500 text-orange-600 font-semibold"
+//                         : "bg-white border-gray-300 text-gray-700 hover:border-orange-400 hover:text-orange-600"
+//                     }`}
+//                   >
+//                     <OrangeIcon className="w-5 h-5" />
+//                     Orange Money
+//                   </button>
+//                   <button
+//                     onClick={() => changeLinkedWallet("airtel")}
+//                     className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+//                       linkedWallet.provider === "airtel" && selectedMethod !== "crypto"
+//                         ? "bg-red-50 border-red-500 text-red-600 font-semibold"
+//                         : "bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-600"
+//                     }`}
+//                   >
+//                     <AirtelIcon className="w-5 h-5" />
+//                     Airtel Money
+//                   </button>
+//                   <button
+//                     onClick={() => changeLinkedWallet("mpesa")}
+//                     className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+//                       linkedWallet.provider === "mpesa" && selectedMethod !== "crypto"
+//                         ? "bg-green-50 border-green-500 text-green-600 font-semibold"
+//                         : "bg-white border-gray-300 text-gray-700 hover:border-green-400 hover:text-green-600"
+//                     }`}
+//                   >
+//                     <MPesaIcon className="w-5 h-5" />
+//                     M-Pesa
+//                   </button>
+//                   <button
+//                     onClick={() => changeLinkedWallet("crypto")}
+//                     className={`px-4 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+//                       selectedMethod === "crypto"
+//                         ? "bg-amber-50 border-amber-500 text-amber-600 font-semibold"
+//                         : "bg-white border-gray-300 text-gray-700 hover:border-amber-400 hover:text-amber-600"
+//                     }`}
+//                   >
+//                     <Zap className="w-5 h-5" />
+//                     Crypto (BEP20)
+//                   </button>
+//                 </div>
+//               </div>
+
+
+
+            // </motion.div>
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { withdrawalProfileService } from '@/lib/withdrawalProfileService';
+import { useWithdrawalProfile } from '@/hooks/useWithdrawalProfile';
 import {
   ArrowLeft,
   Wallet,
@@ -29,6 +849,26 @@ import { financeService } from '@/lib/financeService';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from "@/contexts/AuthContext";
+
+// Liste des codes pays
+const countryCodes = [
+  { code: "+243", name: "RDC", flag: "🇨🇩" },
+  { code: "+225", name: "Côte d'Ivoire", flag: "🇨🇮" },
+  { code: "+229", name: "Bénin", flag: "🇧🇯" },
+  { code: "+226", name: "Burkina Faso", flag: "🇧🇫" },
+  { code: "+228", name: "Togo", flag: "🇹🇬" },
+  { code: "+227", name: "Niger", flag: "🇳🇪" },
+  { code: "+223", name: "Mali", flag: "🇲🇱" },
+  { code: "+237", name: "Cameroun", flag: "🇨🇲" },
+  { code: "+242", name: "Congo", flag: "🇨🇬" },
+  { code: "+257", name: "Burundi", flag: "🇧🇮" },
+  { code: "+250", name: "Rwanda", flag: "🇷🇼" },
+  { code: "+254", name: "Kenya", flag: "🇰🇪" },
+  { code: "+255", name: "Tanzanie", flag: "🇹🇿" },
+  { code: "+256", name: "Ouganda", flag: "🇺🇬" },
+  { code: "+257", name: "Burundi", flag: "🇧🇮" }
+];
+
 export default function RetraitPage() {
   const router = useRouter();
   const [amount, setAmount] = useState("");
@@ -37,21 +877,31 @@ export default function RetraitPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [tempWalletInfo, setTempWalletInfo] = useState("");
   const [transactionId, setTransactionId] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [selectedCountryCode, setSelectedCountryCode] = useState("+243");
   const whatsappNumber = "+1 (450) 914-1073";
-   const { user, loading: authLoading } = useAuth();
-    // Nettoyer le numéro pour l'URL WhatsApp
-    const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '')
+  const { user, loading: authLoading } = useAuth();
+  const cleanedNumber = whatsappNumber.replace(/\s|\(|\)|-/g, '');
+
   const [userInfo, setUserInfo] = useState({
     uid: "",
     email: "",
     phone: "",
     name: ""
   });
-  const [recipientName, setRecipientName] = useState("");
   
-  // NOUVEAU: États pour les agents dynamiques
+  // Hook de profil - maintenant il gère séparément countryCode et phoneNumber
+  const { 
+    profile, 
+    loading: profileLoading, 
+    saveProfile, 
+    updateProfile,
+    source,
+    hasProfile
+  } = useWithdrawalProfile(userInfo.uid, userInfo);
+  
+  // États pour les agents dynamiques
   const [dynamicAgents, setDynamicAgents] = useState({
     airtelAgent: { number: "", name: "" },
     orangeAgent: { number: "", name: "" },
@@ -65,13 +915,15 @@ export default function RetraitPage() {
     mpesaAgent: "0971234567",
   });
   
+  // MODIFICATION : linkedWallet ne contient que le numéro SANS code pays
   const [linkedWallet, setLinkedWallet] = useState({
-    provider: "airtel",
-    number: user?.phone,
+    provider: profile?.provider || "orange",
+    phoneNumber: profile?.phoneNumber || "", // SEULEMENT le numéro local
   });
 
   const [cryptoAddress, setCryptoAddress] = useState("");
 
+  // Charger les données utilisateur et solde
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -105,7 +957,46 @@ export default function RetraitPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // NOUVEAU: Charger les agents depuis Firestore
+  // Mettre à jour linkedWallet quand le profil change
+  useEffect(() => {
+    if (profile && !profileLoading) {
+      setLinkedWallet({
+        provider: profile.provider || "orange",
+        phoneNumber: profile.phoneNumber || "" // SEULEMENT le numéro local
+      });
+      
+
+       if (profile.cryptoAddress) {
+      setCryptoAddress(profile.cryptoAddress);
+    }
+      // Mettre à jour le code pays si présent dans le profil
+      if (profile.countryCode) {
+        setSelectedCountryCode(profile.countryCode);
+      } else {
+        // Essayer de détecter le code pays du numéro utilisateur
+        if (userInfo.phone) {
+          const detectedCode = detectCountryCode(normalizePhone(user.phone));
+          if (detectedCode) {
+            setSelectedCountryCode(detectedCode);
+          }
+        }
+      }
+    }
+  }, [profile, profileLoading, userInfo]);
+
+  // Fonction pour détecter le code pays
+  const detectCountryCode = (phoneNumber) => {
+    if (!phoneNumber) return "+243";
+    
+    for (const country of countryCodes) {
+      if (phoneNumber.startsWith(country.code)) {
+        return country.code;
+      }
+    }
+    return "+243"; // Par défaut RDC
+  };
+
+  // Charger les agents depuis Firestore
   useEffect(() => {
     const loadAgents = async () => {
       try {
@@ -138,7 +1029,6 @@ export default function RetraitPage() {
         });
 
         setDynamicAgents(agents);
-        // Mettre à jour agentsInfo avec les numéros dynamiques
         setAgentsInfo({
           airtelAgent: agents.airtelAgent.number || "0986343739",
           orangeAgent: agents.orangeAgent.number || "0841366703",
@@ -153,6 +1043,59 @@ export default function RetraitPage() {
 
     loadAgents();
   }, []);
+
+ const autoSaveProfileAfterWithdrawal = async () => {
+  if (!user.uid) return;
+  
+  try {
+    const existingProfile = await withdrawalProfileService.getProfile(user.uid);
+    console.log("ok je suis dans profile")
+    // Données à sauvegarder selon la méthode
+    let profileData = {};
+    
+    if (selectedMethod === "crypto") {
+      // Pour crypto: sauvegarder l'adresse
+      if (!cryptoAddress.trim()) return;
+      
+      profileData = {
+        phoneNumber: "",
+        recipientName: "",
+        provider: "crypto",
+        countryCode: "",
+        cryptoAddress: cryptoAddress.trim()
+      };
+    } else {
+      // Pour mobile: sauvegarder les infos classiques
+      const recipientNameToUse = recipientName.trim() || userInfo.name || "";
+      const phoneNumber = linkedWallet.phoneNumber || "";
+      
+      if (!recipientNameToUse || !phoneNumber) return;
+      
+      profileData = {
+        phoneNumber: phoneNumber,
+        recipientName: recipientNameToUse,
+        provider: linkedWallet.provider,
+        countryCode: selectedCountryCode,
+        cryptoAddress: "" // Effacer l'adresse crypto si on passe à mobile
+      };
+    }
+    
+    if (existingProfile.success && existingProfile.exists) {
+      // Mettre à jour le profil existant
+      await withdrawalProfileService.saveProfile(userInfo.uid, profileData);
+    } else {
+      // Créer un nouveau profil
+      await withdrawalProfileService.saveProfile(userInfo.uid, profileData);
+    }
+    
+    // Recharger le profil
+    if (profile && profile.refresh) {
+      profile.refresh();
+    }
+  } catch (error) {
+    console.error('Erreur sauvegarde automatique profil:', error);
+  }
+};
 
   const paymentMethods = [
     {
@@ -296,13 +1239,19 @@ export default function RetraitPage() {
     setTransactionId(generateTransactionId());
   };
 
+
+  function normalizePhone(phone) {
+  if (!phone) return "";
+  return phone.replace(/^\+/, "").replace(/\D/g, "");
+}
+
   const copyToClipboard = (text, field) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // NOUVEAU: Récupérer le nom de l'agent
+  // Récupérer le nom de l'agent
   const getAgentName = () => {
     if (!selectedMethod) return "";
     switch(selectedMethod) {
@@ -350,8 +1299,16 @@ export default function RetraitPage() {
         return false;
       }
     } else {
-      if (!recipientName.trim()) {
+      const recipientNameToUse = recipientName.trim() || userInfo.name || "";
+      if (!recipientNameToUse.trim()) {
         alert("Veuillez saisir le nom du bénéficiaire.");
+        return false;
+      }
+      
+      // Vérifier que le numéro est valide (sans code pays)
+      const phoneNumber = linkedWallet.phoneNumber || "";
+      if (!phoneNumber || phoneNumber.length < 8) {
+        alert("Veuillez vérifier votre numéro de téléphone.");
         return false;
       }
     }
@@ -362,6 +1319,7 @@ export default function RetraitPage() {
   const handleWithdrawal = async () => {
     if (!validateWithdrawal()) return;
 
+     
     if (!userInfo.uid) {
       alert('Veuillez vous connecter pour effectuer un retrait.');
       router.push('/auth/login');
@@ -369,15 +1327,20 @@ export default function RetraitPage() {
     }
 
     setIsProcessing(true);
-
+  await autoSaveProfileAfterWithdrawal();
     try {
+      const recipientNameToUse = recipientName.trim() || userInfo.name || "";
+      
+      // MODIFICATION : Envoyer SEULEMENT le numéro local sans code pays
       const withdrawalData = {
+        profileSource: source,
         amount: numericAmount,
         fees: fees,
         netAmount: totalReceived,
         paymentMethod: selectedMethodData?.name || '',
-        recipientPhone: selectedMethod === "crypto" ? "" : linkedWallet.number,
-        recipientName: selectedMethod === "crypto" ? "" : recipientName,
+        recipientPhone: selectedMethod === "crypto" ? "" : linkedWallet.phoneNumber || "", // SEULEMENT numéro local
+        countryCode: selectedMethod === "crypto" ? "" : selectedCountryCode, // Code pays séparé
+        recipientName: selectedMethod === "crypto" ? "" : recipientNameToUse,
         cryptoAddress: selectedMethod === "crypto" ? cryptoAddress : "",
         agentNumber: getAgentNumber(),
         agentName: getAgentName(),
@@ -403,14 +1366,18 @@ export default function RetraitPage() {
         if (selectedMethod === "crypto") {
           message += `Adresse: ${cryptoAddress}\n\n`;
         } else {
-          message += `Numéro: ${linkedWallet.number}\n` +
-                     `Nom: ${recipientName}\n\n`;
+          message += `Code pays: ${selectedCountryCode}\n` +
+                     `Numéro: ${linkedWallet.phoneNumber || ""}\n` +
+                     `Nom: ${recipientNameToUse}\n\n`;
         }
         
         message += `Votre demande est en attente de validation.\n` +
           `Le virement sera effectué après approbation admin.`;
         
         alert(message);
+        
+        // Sauvegarde automatique du profil après retrait réussi
+          // await autoSaveProfileAfterWithdrawal();
         
         setAmount("");
         setSelectedMethod(null);
@@ -426,47 +1393,61 @@ export default function RetraitPage() {
   };
 
   const handleEditWallet = () => {
-    setTempWalletInfo(linkedWallet.number);
     setIsEditing(true);
   };
 
   const handleSaveWallet = () => {
-    if (tempWalletInfo.trim() === "") {
-      alert("Veuillez saisir un numéro valide.");
-      return;
-    }
+    if (isEditing) {
+      const phoneNumber = linkedWallet.phoneNumber || "";
+      
+      if (!phoneNumber || phoneNumber.trim() === "") {
+        alert("Veuillez saisir un numéro valide.");
+        return;
+      }
 
-    setLinkedWallet({
-      ...linkedWallet,
-      number: tempWalletInfo
-    });
-    setIsEditing(false);
+      // Validation du numéro local (sans code pays)
+      if (phoneNumber.length < 8 || !/^\d+$/.test(phoneNumber)) {
+        alert("Veuillez saisir un numéro valide (minimum 8 chiffres, sans code pays).");
+        return;
+      }
+
+      setIsEditing(false);
+      
+      // Sauvegarder automatiquement le profil
+      if (hasProfile) {
+        updateProfile({
+          phoneNumber: phoneNumber,
+          provider: linkedWallet.provider,
+          countryCode: selectedCountryCode
+        });
+      }
+    }
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
   };
 
-  const changeLinkedWallet = (provider) => {
-    if (provider === "crypto") {
-      setLinkedWallet({
-        provider: "crypto",
-        number: "Adresse BEP20 à saisir"
-      });
-    } else {
-      setLinkedWallet({
-        provider: provider,
-        number: provider === "orange" ? "0898765432" : 
-                provider === "airtel" ? "0992345678" : 
-                "0821234567"
-      });
+ const changeLinkedWallet = (provider) => {
+  if (provider === "crypto") {
+    setLinkedWallet({
+      provider: "crypto",
+      phoneNumber: ""
+    });
+    // Pré-remplir avec l'adresse crypto du profil si disponible
+    if (profile?.cryptoAddress) {
+      setCryptoAddress(profile.cryptoAddress);
     }
-    setSelectedMethod(provider);
-    
-    if (provider !== "crypto") {
-      setCryptoAddress("");
-    }
-  };
+  } else {
+    setLinkedWallet({
+      provider: provider,
+      phoneNumber: profile?.phoneNumber || linkedWallet.phoneNumber || ""
+    });
+    // Effacer l'adresse crypto quand on passe à mobile
+    setCryptoAddress("");
+  }
+  setSelectedMethod(provider);
+};
 
   const getInstructions = () => {
     if (!selectedMethodData) return [];
@@ -478,6 +1459,21 @@ export default function RetraitPage() {
   const getAgentNumber = () => {
     if (!selectedMethodData) return "";
     return selectedMethodData.agentNumber;
+  };
+
+  // Fonction pour formater l'affichage du numéro
+  const formatPhoneDisplay = () => {
+    const phoneNumber = linkedWallet.phoneNumber ?  linkedWallet.phoneNumber : normalizePhone(user.phone);
+    if (!phoneNumber) return "Non défini";
+    return `${phoneNumber}`;
+  };
+
+  // Fonction pour copier le numéro complet
+  const copyFullPhoneNumber = () => {
+    const phoneNumber = linkedWallet.phoneNumber || "";
+    if (!phoneNumber) return;
+    const fullNumber = `${selectedCountryCode}${phoneNumber}`;
+    copyToClipboard(fullNumber, "wallet");
   };
 
   return (
@@ -551,6 +1547,19 @@ export default function RetraitPage() {
                 {selectedMethod === "crypto" ? "Adresse de réception Crypto" : "Portefeuille de réception"}
               </h2>
               
+              {/* Indicateur de source */}
+              {selectedMethod !== "crypto" && (
+                <div className="mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    hasProfile 
+                      ? "bg-green-100 text-green-800 border border-green-200"
+                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                  }`}>
+                    {hasProfile ? "📁 Profil sauvegardé" : "👤 Informations du compte"}
+                  </span>
+                </div>
+              )}
+              
               <p className="text-gray-600 mb-6 text-sm">
                 {selectedMethod === "crypto" 
                   ? "Saisissez votre adresse BEP20 pour recevoir vos cryptomonnaies."
@@ -620,49 +1629,68 @@ export default function RetraitPage() {
                   </div>
                   
                   {isEditing ? (
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={tempWalletInfo}
-                          onChange={(e) => setTempWalletInfo(e.target.value)}
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
-                          placeholder="Saisissez le nouveau numéro"
-                        />
-                        <button
-                          onClick={handleSaveWallet}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
-                        >
-                          <Save className="w-4 h-4" />
-                          Enregistrer
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg flex items-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          Annuler
-                        </button>
+                    <div className="">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Numéro de téléphone
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={linkedWallet.phoneNumber || ""}
+                            onChange={(e) => setLinkedWallet({
+                              ...linkedWallet,
+                              phoneNumber: e.target.value.replace(/\D/g, "")
+                            })}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                            placeholder="Ex: 897654321"
+                          />
+                          <button
+                            onClick={handleSaveWallet}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-1"
+                          >
+                            <Save className="w-4 h-4" />
+                            Enregistrer
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg flex items-center gap-1"
+                          >
+                            <X className="w-4 h-4" />
+                            Annuler
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        Vous pouvez utiliser un numéro différent de celui utilisé pour créer votre compte.
-                      </p>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-lg font-semibold text-gray-900">{linkedWallet.number}</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Ce numéro peut être modifié à tout moment selon vos préférences
-                        </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {formatPhoneDisplay()}
+                          </p>
+                          {profile?.recipientName && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Nom: {profile.recipientName}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-500 mt-1">
+                            {hasProfile 
+                              ? ""
+                              : "Ce numéro peut être modifié à tout moment selon vos préférences"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={copyFullPhoneNumber}
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
+                          disabled={!linkedWallet.phoneNumber}
+                        >
+                          <Copy className="w-4 h-4" />
+                          {copiedField === "wallet" ? "Copié !" : "Copier"}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => copyToClipboard(linkedWallet.number, "wallet")}
-                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                      >
-                        <Copy className="w-4 h-4" />
-                        {copiedField === "wallet" ? "Copié !" : "Copier"}
-                      </button>
+                      
+                     
                     </div>
                   )}
                 </div>
@@ -898,25 +1926,35 @@ export default function RetraitPage() {
                               </p>
                             </div>
                             
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
                                 Numéro de téléphone
                               </label>
-                              <div className="flex items-center justify-between">
+                              
+                              <div className="flex items-center gap-2 mb-2">
+                             
+                                <input
+                                  type="text"
+                                  value={linkedWallet.phoneNumber || ""}
+                                  onChange={(e) => setLinkedWallet({
+                                    ...linkedWallet,
+                                    phoneNumber: e.target.value.replace(/\D/g, "")
+                                  })}
+                                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                                  placeholder="Numéro sans code pays"
+                                />
+                              </div>
+                              
+                              <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
                                 <div>
-                                  <p className="text-lg font-bold text-gray-900">{linkedWallet.number}</p>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    Vérifiez que ce numéro est correct
+                                  <p className="text-sm font-medium text-blue-900">Numéro complet:</p>
+                                  <p className="text-lg font-bold text-blue-800">
+                                    {linkedWallet?.phoneNumber ? linkedWallet.phoneNumber : normalizePhone(user.phone)}
                                   </p>
                                 </div>
-                                <button
-                                  onClick={() => copyToClipboard(linkedWallet.number, "wallet")}
-                                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-                                >
-                                  <Copy className="w-4 h-4" />
-                                  Copier
-                                </button>
+                              
                               </div>
+                        
                             </div>
                           </div>
                         </div>
@@ -939,14 +1977,26 @@ export default function RetraitPage() {
                               </p>
                             </div>
                           ) : (
-                            <div className="pb-3 border-b border-gray-200">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-green-900">Nom bénéficiaire</span>
+                            <>
+                              <div className="pb-3 border-b border-gray-200">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-green-900">Nom bénéficiaire</span>
+                                </div>
+                                <p className="text-sm font-medium text-green-900">
+                                  {recipientName}
+                                </p>
                               </div>
-                              <p className="text-sm font-medium text-green-900">
-                                {recipientName}
-                              </p>
-                            </div>
+                              
+                              <div className="pb-3 border-b border-gray-200">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-green-900">Numéro de retrait</span>
+                                </div>
+                                <p className="text-sm font-medium text-green-900">
+                                  {linkedWallet.phoneNumber || "Non défini"}
+                                </p>
+                               
+                              </div>
+                            </>
                           )}
 
                           <div className="flex justify-between">
@@ -955,13 +2005,6 @@ export default function RetraitPage() {
                             </span>
                             <span className="font-semibold">{selectedMethodData.name}</span>
                           </div>
-
-                          {selectedMethod !== "crypto" && (
-                            <div className="flex justify-between">
-                              <span className="text-green-900">Votre numéro :</span>
-                              <span className="font-semibold">{linkedWallet.number}</span>
-                            </div>
-                          )}
                           
                           <div className="flex justify-between">
                             <span className={selectedMethod === "crypto" ? "text-amber-900" : "text-green-900"}>
@@ -979,7 +2022,6 @@ export default function RetraitPage() {
                             <span className="font-semibold text-red-600">-{formatAmount(fees)} CDF</span>
                           </div>
 
-                          {/* NOUVEAU: Afficher le nom de l'agent */}
                           {selectedMethod !== "crypto" && (
                             <div className="flex justify-between">
                               <span className="text-green-900">Agent :</span>
@@ -1023,6 +2065,7 @@ export default function RetraitPage() {
                                 <li>• Frais de retrait : 10% du montant retiré</li>
                                 <li>• Utilisez toujours le numéro agent officiel : {getAgentNumber()}</li>
                                 <li>• Agent : {getAgentName()}</li>
+                                <li>• Pour les retraits, utilisez uniquement le numéro local : {linkedWallet.phoneNumber || "Non défini"}</li>
                                 <li>• Vérifiez votre numéro avant de confirmer</li>
                                 <li>• Contactez le support en cas de problème avec votre ID de transaction</li>
                               </>
@@ -1078,45 +2121,55 @@ export default function RetraitPage() {
                   </div>
                 )}
                 
-                {selectedMethod && (
+                {selectedMethod && selectedMethod !== "crypto" && (
+                  <>
+               
+                    
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-600">Numéro de retrait</span>
+                        <button
+                          onClick={() => copyToClipboard(linkedWallet.phoneNumber, "receipt-number")}
+                          className="text-blue-600 hover:text-blue-700 text-sm"
+                          disabled={!linkedWallet.phoneNumber}
+                        >
+                          Copier
+                        </button>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {linkedWallet.phoneNumber ? linkedWallet.phoneNumber :  normalizePhone(user.phone)  || "Non défini"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Utilisez uniquement ce numéro pour les retraits
+                      </p>
+                    </div>
+                  </>
+                )}
+                
+                {selectedMethod === "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-gray-600">
-                        {selectedMethod === "crypto" ? "Adresse BEP20" : "Votre numéro"}
-                      </span>
-                      {selectedMethod === "crypto" && cryptoAddress ? (
+                      <span className="text-gray-600">Adresse BEP20</span>
+                      {cryptoAddress && (
                         <button
                           onClick={() => copyToClipboard(cryptoAddress, "crypto-summary")}
                           className="text-blue-600 hover:text-blue-700 text-sm"
                         >
                           Copier
                         </button>
-                      ) : selectedMethod !== "crypto" ? (
-                        <button
-                          onClick={() => copyToClipboard(linkedWallet.number, "receipt")}
-                          className="text-blue-600 hover:text-blue-700 text-sm"
-                        >
-                          Copier
-                        </button>
-                      ) : null}
+                      )}
                     </div>
-                    {selectedMethod === "crypto" ? (
-                      cryptoAddress ? (
-                        <p className="text-xs font-mono text-gray-900 break-all bg-gray-50 p-2 rounded mt-1">
-                          {cryptoAddress}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">À saisir</p>
-                      )
-                    ) : (
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {linkedWallet.number}
+                    {cryptoAddress ? (
+                      <p className="text-xs font-mono text-gray-900 break-all bg-gray-50 p-2 rounded mt-1">
+                        {cryptoAddress}
                       </p>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">À saisir</p>
                     )}
                   </div>
                 )}
                 
-                {/* NOUVEAU: Afficher le nom de l'agent */}
+                {/* Nom de l'agent */}
                 {selectedMethod && selectedMethod !== "crypto" && (
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex justify-between items-center mb-1">
@@ -1255,13 +2308,17 @@ export default function RetraitPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600">•</span>
                   <span className="text-sm">
+                    Pour les retraits
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600">•</span>
+                  <span className="text-sm">
                     Conservez votre ID de transaction pour suivi
                   </span>
                 </li>
               </ul>
               
-
-             
               <button
                 onClick={() => window.open(`https://wa.me/${cleanedNumber}`, '_blank')}
                 className="w-full mt-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium"
