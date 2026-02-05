@@ -878,7 +878,7 @@ export default function RetraitPage() {
   const [copiedField, setCopiedField] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [transactionId, setTransactionId] = useState("");
-  const [recipientName, setRecipientName] = useState("");
+
   const [selectedCountryCode, setSelectedCountryCode] = useState("+243");
   const whatsappNumber = "+1 (450) 914-1073";
   const { user, loading: authLoading } = useAuth();
@@ -899,8 +899,22 @@ export default function RetraitPage() {
     updateProfile,
     source,
     hasProfile
-  } = useWithdrawalProfile(userInfo.uid, userInfo);
+  } = useWithdrawalProfile(user.uid, userInfo);
   
+
+
+const [recipientName, setRecipientName] = useState(user.name || '');
+
+// 2. Ajouter un useEffect pour mettre à jour quand le profil charge
+useEffect(() => {
+  if (profile && profile.recipientName) {
+    // Si le profil a un recipientName, l'utiliser
+    setRecipientName(profile.recipientName);
+  } else if (user.name) {
+    // Sinon, utiliser le nom de l'utilisateur
+    setRecipientName(user.name);
+  }
+}, [profile, user.name]);
   // États pour les agents dynamiques
   const [dynamicAgents, setDynamicAgents] = useState({
     airtelAgent: { number: "", name: "" },
@@ -1295,11 +1309,11 @@ export default function RetraitPage() {
       }
       
       if (!cryptoAddress.startsWith("0x") || cryptoAddress.length !== 42) {
-        alert("Veuillez saisir une adresse BEP20 valide (commence par 0x et fait 42 caractères).");
+        alert("Veuillez saisir une adresse BEP20 valide ");
         return false;
       }
     } else {
-      const recipientNameToUse = recipientName.trim() || userInfo.name || "";
+      const recipientNameToUse = recipientName.trim() || user.name || "";
       if (!recipientNameToUse.trim()) {
         alert("Veuillez saisir le nom du bénéficiaire.");
         return false;
@@ -1355,8 +1369,21 @@ export default function RetraitPage() {
       setIsProcessing(false);
 
       if (result.success) {
+
+          const now = new Date();
+  const formattedDate = now.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const formattedTime = now.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
         let message = `✅ Demande de retrait soumise !\n\n` +
           `ID: ${result.withdrawalId}\n` +
+           `📅 Date: ${formattedDate}\n` +
           `Montant: ${formatAmount(numericAmount)} CDF\n` +
           `Frais: ${formatAmount(fees)} CDF\n` +
           `À recevoir: ${formatAmount(totalReceived)} CDF\n` +
@@ -1366,8 +1393,7 @@ export default function RetraitPage() {
         if (selectedMethod === "crypto") {
           message += `Adresse: ${cryptoAddress}\n\n`;
         } else {
-          message += `Code pays: ${selectedCountryCode}\n` +
-                     `Numéro: ${linkedWallet.phoneNumber || ""}\n` +
+          message +=`Numéro: ${linkedWallet.phoneNumber || ""}\n` +
                      `Nom: ${recipientNameToUse}\n\n`;
         }
         
@@ -1407,7 +1433,7 @@ export default function RetraitPage() {
 
       // Validation du numéro local (sans code pays)
       if (phoneNumber.length < 8 || !/^\d+$/.test(phoneNumber)) {
-        alert("Veuillez saisir un numéro valide (minimum 8 chiffres, sans code pays).");
+        alert("Veuillez saisir un numéro valide (minimum 8 chiffres)");
         return;
       }
 
@@ -1634,7 +1660,7 @@ export default function RetraitPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Numéro de téléphone
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <input
                             type="text"
                             value={linkedWallet.phoneNumber || ""}
@@ -1941,7 +1967,7 @@ export default function RetraitPage() {
                                     phoneNumber: e.target.value.replace(/\D/g, "")
                                   })}
                                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
-                                  placeholder="Numéro sans code pays"
+                                  placeholder="Numéro "
                                 />
                               </div>
                               
@@ -2065,7 +2091,6 @@ export default function RetraitPage() {
                                 <li>• Frais de retrait : 10% du montant retiré</li>
                                 <li>• Utilisez toujours le numéro agent officiel : {getAgentNumber()}</li>
                                 <li>• Agent : {getAgentName()}</li>
-                                <li>• Pour les retraits, utilisez uniquement le numéro local : {linkedWallet.phoneNumber || "Non défini"}</li>
                                 <li>• Vérifiez votre numéro avant de confirmer</li>
                                 <li>• Contactez le support en cas de problème avec votre ID de transaction</li>
                               </>
