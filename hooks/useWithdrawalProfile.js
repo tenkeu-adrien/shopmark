@@ -58,6 +58,7 @@ export const useWithdrawalProfile = (userId, userInfo) => {
     
     setLoading(true);
     
+    
     try {
       // Validation des données
       const validation = withdrawalProfileService.validateProfileData(profileData);

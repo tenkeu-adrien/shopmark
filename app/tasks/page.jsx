@@ -8,10 +8,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTransactionsStore } from '@/lib/store/transactionsStore';
+import { useAuth } from '@/contexts/AuthContext';
 export default function TasksPage() {
   const [activeView, setActiveView] = useState('retraits');
-  const [user, setUser] = useState(null);
- 
+  const { user} = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
 
@@ -31,7 +31,7 @@ const {
     if (user?.uid) {
       fetchTransactionsData(user.uid, false);
     }
-  }, [user?.uid, fetchTransactionsData]);
+  }, [user?.uid]);
   const [adminNotes, setAdminNotes] = useState('');
 console.log("task loader" , transactions);
 
@@ -194,7 +194,7 @@ console.log("task loader" , transactions);
           <button
             onClick={handleRefresh}
             disabled={loading || refreshing}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="p-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -204,7 +204,7 @@ console.log("task loader" , transactions);
         <div className="flex gap-2">
           <button
             onClick={() => setActiveView('retraits')}
-            className={`flex-1 py-3 rounded-full font-semibold transition-all text-[10px] ${
+            className={`flex-1 py-3 rounded-full font-semibold transition-all text-[10px] cursor-pointer ${
               activeView === 'retraits'
                 ? 'bg-amber-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -215,7 +215,7 @@ console.log("task loader" , transactions);
           
           <button
             onClick={() => setActiveView('investissements')}
-            className={`flex-1 py-3 rounded-full font-semibold transition-all text-[10px] ${
+            className={`flex-1 py-3 rounded-full font-semibold transition-all text-[10px]  cursor-pointer ${
               activeView === 'investissements'
                 ? 'bg-amber-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
