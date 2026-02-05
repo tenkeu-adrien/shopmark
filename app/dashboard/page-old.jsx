@@ -13,38 +13,98 @@ import {
   ArrowDownRight,
   Loader2
 } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import DashboardCard from '@/components/DashboardCard';
 import Link from 'next/link';
-import { useDashboardStore } from '@/lib/store';
 
-export default function DashboardPageOptimized() {
-  const {
-    dashboardData,
-    loadingStates,
-    fetchDashboardStats,
-    fetchRecentActivity,
-    preloadDashboard,
-    invalidateCache
-  } = useDashboardStore();
-
-  const [initialLoading, setInitialLoading] = useState(true);
-
-  console.log("ok dashboard optimisé");
-
-  // Charger les données au montage
+export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDeposits: 0,
+    totalWithdrawals: 0,
+    pendingTransactions: 0,
+    totalRevenue: 0,
+    activeUsers: 0
+  });
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+console.log("ok dashboard")
   useEffect(() => {
-    const loadData = async () => {
+    const loadDashboardData = async () => {
       try {
-        setInitialLoading(true);
-        await preloadDashboard();
+        setLoading(true);
+        
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const totalUsers = usersSnapshot.size;
+        
+        const transactionsSnapshot = await getDocs(collection(db, 'transactions'));
+        const transactions = transactionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const totalDeposits = transactions
+          .filter(t => t.depositId && t.status === 'confirmed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        const totalWithdrawals = transactions
+          .filter(t => t.withdrawalId && t.status === 'confirmed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        const pendingTransactions = transactions
+          .filter(t => t.status === 'pending').length;
+
+        const walletsSnapshot = await getDocs(collection(db, 'wallets'));
+        const totalRevenue = walletsSnapshot.docs.reduce((sum, doc) => {
+          const data = doc.data();
+          return sum + (data.stats?.totalEarned || 0);
+        }, 0);
+
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        const activeUsersQuery = query(
+          collection(db, 'users'),
+          where('lastLogin', '>=', weekAgo)
+        );
+        const activeUsersSnapshot = await getDocs(activeUsersQuery);
+        const activeUsers = activeUsersSnapshot.size;
+
+        const recentActivityQuery = query(
+          collection(db, 'transactions'),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+        );
+        const recentActivitySnapshot = await getDocs(recentActivityQuery);
+        const recentActivityData = recentActivitySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().createdAt?.toDate?.() || new Date()
+        }));
+
+        setStats({
+          totalUsers,
+          totalDeposits,
+          totalWithdrawals,
+          pendingTransactions,
+          totalRevenue,
+          activeUsers
+        });
+
+        setRecentActivity(recentActivityData);
       } catch (error) {
         console.error('Erreur chargement dashboard:', error);
       } finally {
-        setInitialLoading(false);
+        setLoading(false);
       }
     };
 
-    loadData();
+    loadDashboardData();
+
+    // const interval = setInterval(loadDashboardData, 9000000000000000000000000000000000000000000000000000000000);
+    // return () => clearInterval(interval);
   }, []);
 
   const formatAmount = (amount) => {
@@ -70,12 +130,11 @@ export default function DashboardPageOptimized() {
     }
   };
 
-  const refreshData = async () => {
-    invalidateCache();
-    await preloadDashboard();
+  const refreshData = () => {
+    window.location.reload();
   };
 
-  if (initialLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -85,8 +144,6 @@ export default function DashboardPageOptimized() {
       </div>
     );
   }
-
-  const { stats, recentActivity } = dashboardData;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -99,14 +156,13 @@ export default function DashboardPageOptimized() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
           <button 
             onClick={refreshData}
-            disabled={loadingStates.global}
-            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto"
           >
-            <RefreshCw className={`w-4 h-4 ${loadingStates.global ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4" />
             <span className="text-sm sm:text-base">Rafraîchir</span>
           </button>
           <div className="text-xs sm:text-sm text-gray-500 self-end sm:self-center">
-            {loadingStates.stats ? 'Mise à jour...' : 'Données en cache'}
+            Mis à jour il y a quelques secondes
           </div>
         </div>
       </div>
@@ -209,23 +265,6 @@ export default function DashboardPageOptimized() {
             </Link>
           </div>
         </DashboardCard>
-
-        <DashboardCard>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs sm:text-sm text-gray-500">Utilisateurs actifs</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.activeUsers}</p>
-              <div className="flex items-center mt-1">
-                <span className="text-xs text-green-600 font-medium">
-                  7 derniers jours
-                </span>
-              </div>
-            </div>
-            <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-              <Activity className="w-6 sm:w-8 h-6 sm:h-8 text-green-600" />
-            </div>
-          </div>
-        </DashboardCard>
       </div>
 
       {/* Activité récente */}
@@ -320,7 +359,7 @@ export default function DashboardPageOptimized() {
         </DashboardCard>
 
         <div className="md:col-span-2">
-          <DashboardCard title="Aperçu mensuel" className='mb-30'>
+          <DashboardCard title="Aperçu mensuel"   className='mb-30'>
             <div className="h-40 sm:h-48 md:h-56 lg:h-64 flex items-end justify-between px-2 sm:px-4">
               {Array.from({ length: 30 }).map((_, index) => {
                 const day = index + 1;

@@ -1254,9 +1254,280 @@ useEffect(() => {
   };
 
 
-  function normalizePhone(phone) {
+function normalizePhone(phone) {
   if (!phone) return "";
-  return phone.replace(/^\+/, "").replace(/\D/g, "");
+  
+  const countryCodes = [
+    // Afrique
+    '+213', // Algérie
+    '+244', // Angola
+    '+229', // Bénin
+    '+267', // Botswana
+    '+226', // Burkina Faso
+    '+257', // Burundi
+    '+237', // Cameroun
+    '+238', // Cap-Vert
+    '+236', // République centrafricaine
+    '+235', // Tchad
+    '+269', // Comores
+    '+243', // République démocratique du Congo
+    '+242', // République du Congo
+    '+225', // Côte d'Ivoire
+    '+253', // Djibouti
+    '+20',  // Égypte
+    '+240', // Guinée équatoriale
+    '+291', // Érythrée
+    '+251', // Éthiopie
+    '+241', // Gabon
+    '+220', // Gambie
+    '+233', // Ghana
+    '+224', // Guinée
+    '+245', // Guinée-Bissau
+    '+254', // Kenya
+    '+266', // Lesotho
+    '+231', // Liberia
+    '+218', // Libye
+    '+261', // Madagascar
+    '+265', // Malawi
+    '+223', // Mali
+    '+222', // Mauritanie
+    '+230', // Maurice
+    '+262', // Mayotte
+    '+269', // Comores (à nouveau)
+    '+212', // Maroc
+    '+258', // Mozambique
+    '+264', // Namibie
+    '+227', // Niger
+    '+234', // Nigeria
+    '+250', // Rwanda
+    '+262', // La Réunion
+    '+590', // Saint-Barthélemy
+    '+290', // Sainte-Hélène
+    '+508', // Saint-Pierre-et-Miquelon
+    '+239', // São Tomé-et-Principe
+    '+221', // Sénégal
+    '+248', // Seychelles
+    '+232', // Sierra Leone
+    '+252', // Somalie
+    '+27',  // Afrique du Sud
+    '+211', // Soudan du Sud
+    '+249', // Soudan
+    '+268', // Eswatini
+    '+255', // Tanzanie
+    '+228', // Togo
+    '+216', // Tunisie
+    '+256', // Ouganda
+    '+260', // Zambie
+    '+263', // Zimbabwe
+    
+    // Amérique du Nord
+    '+1',   // États-Unis, Canada
+    '+1 242', // Bahamas
+    '+1 246', // Barbade
+    '+1 264', // Anguilla
+    '+1 268', // Antigua-et-Barbuda
+    '+1 284', // Îles Vierges britanniques
+    '+1 345', // Îles Caïmans
+    '+1 441', // Bermudes
+    '+1 473', // Grenade
+    '+1 649', // Îles Turques-et-Caïques
+    '+1 664', // Montserrat
+    '+1 670', // Îles Mariannes du Nord
+    '+1 671', // Guam
+    '+1 684', // Samoa américaines
+    '+1 758', // Sainte-Lucie
+    '+1 767', // Dominique
+    '+1 784', // Saint-Vincent-et-les-Grenadines
+    '+1 787', // Porto Rico
+    '+1 809', // République dominicaine
+    '+1 829', // République dominicaine
+    '+1 849', // République dominicaine
+    '+1 868', // Trinité-et-Tobago
+    '+1 869', // Saint-Christophe-et-Niévès
+    '+1 876', // Jamaïque
+    
+    // Amérique du Sud
+    '+54',  // Argentine
+    '+591', // Bolivie
+    '+55',  // Brésil
+    '+56',  // Chili
+    '+57',  // Colombie
+    '+593', // Équateur
+    '+500', // Îles Malouines
+    '+594', // Guyane française
+    '+590', // Guadeloupe
+    '+596', // Martinique
+    '+597', // Suriname
+    '+598', // Uruguay
+    '+58',  // Venezuela
+    '+51',  // Pérou
+    '+592', // Guyana
+    '+595', // Paraguay
+    
+    // Asie
+    '+93',  // Afghanistan
+    '+374', // Arménie
+    '+994', // Azerbaïdjan
+    '+973', // Bahreïn
+    '+880', // Bangladesh
+    '+975', // Bhoutan
+    '+673', // Brunei
+    '+855', // Cambodge
+    '+86',  // Chine
+    '+357', // Chypre
+    '+91',  // Inde
+    '+62',  // Indonésie
+    '+98',  // Iran
+    '+964', // Irak
+    '+972', // Israël
+    '+81',  // Japon
+    '+962', // Jordanie
+    '+7',   // Kazakhstan, Russie
+    '+965', // Koweït
+    '+996', // Kirghizistan
+    '+856', // Laos
+    '+961', // Liban
+    '+60',  // Malaisie
+    '+960', // Maldives
+    '+976', // Mongolie
+    '+95',  // Myanmar
+    '+977', // Népal
+    '+850', // Corée du Nord
+    '+968', // Oman
+    '+92',  // Pakistan
+    '+970', // Palestine
+    '+63',  // Philippines
+    '+974', // Qatar
+    '+966', // Arabie saoudite
+    '+82',  // Corée du Sud
+    '+94',  // Sri Lanka
+    '+963', // Syrie
+    '+886', // Taïwan
+    '+992', // Tadjikistan
+    '+66',  // Thaïlande
+    '+90',  // Turquie
+    '+993', // Turkménistan
+    '+971', // Émirats arabes unis
+    '+998', // Ouzbékistan
+    '+84',  // Viêt Nam
+    '+967', // Yémen
+    
+    // Europe
+    '+355', // Albanie
+    '+376', // Andorre
+    '+43',  // Autriche
+    '+375', // Biélorussie
+    '+32',  // Belgique
+    '+387', // Bosnie-Herzégovine
+    '+359', // Bulgarie
+    '+385', // Croatie
+    '+357', // Chypre
+    '+420', // République tchèque
+    '+45',  // Danemark
+    '+372', // Estonie
+    '+298', // Îles Féroé
+    '+358', // Finlande
+    '+33',  // France
+    '+995', // Géorgie
+    '+49',  // Allemagne
+    '+350', // Gibraltar
+    '+30',  // Grèce
+    '+36',  // Hongrie
+    '+354', // Islande
+    '+353', // Irlande
+    '+39',  // Italie
+    '+383', // Kosovo
+    '+371', // Lettonie
+    '+423', // Liechtenstein
+    '+370', // Lituanie
+    '+352', // Luxembourg
+    '+356', // Malte
+    '+373', // Moldavie
+    '+377', // Monaco
+    '+382', // Monténégro
+    '+31',  // Pays-Bas
+    '+389', // Macédoine du Nord
+    '+47',  // Norvège
+    '+48',  // Pologne
+    '+351', // Portugal
+    '+40',  // Roumanie
+    '+7',   // Russie
+    '+378', // Saint-Marin
+    '+381', // Serbie
+    '+421', // Slovaquie
+    '+386', // Slovénie
+    '+34',  // Espagne
+    '+46',  // Suède
+    '+41',  // Suisse
+    '+44',  // Royaume-Uni
+    '+379', // Vatican
+    
+    // Océanie
+    '+61',  // Australie
+    '+672', // Île Norfolk
+    '+677', // Îles Salomon
+    '+678', // Vanuatu
+    '+679', // Fidji
+    '+682', // Îles Cook
+    '+683', // Niue
+    '+685', // Samoa
+    '+686', // Kiribati
+    '+687', // Nouvelle-Calédonie
+    '+688', // Tuvalu
+    '+689', // Polynésie française
+    '+690', // Tokelau
+    '+691', // États fédérés de Micronésie
+    '+692', // Îles Marshall
+    '+850', // Corée du Nord
+    '+853', // Macao
+    '+855', // Cambodge
+    '+856', // Laos
+    '+880', // Bangladesh
+    '+886', // Taïwan
+    '+960', // Maldives
+    '+961', // Liban
+    '+962', // Jordanie
+    '+963', // Syrie
+    '+964', // Irak
+    '+965', // Koweït
+    '+966', // Arabie saoudite
+    '+967', // Yémen
+    '+968', // Oman
+    '+970', // Palestine
+    '+971', // Émirats arabes unis
+    '+972', // Israël
+    '+973', // Bahreïn
+    '+974', // Qatar
+    '+975', // Bhoutan
+    '+976', // Mongolie
+    '+977', // Népal
+    '+992', // Tadjikistan
+    '+993', // Turkménistan
+    '+994', // Azerbaïdjan
+    '+995', // Géorgie
+    '+996', // Kirghizistan
+    '+998', // Ouzbékistan
+  ];
+  
+  // Supprimer les espaces
+  let normalized = phone.replace(/\s+/g, '');
+  
+  // Remplacer les codes pays par 0
+  for (const code of countryCodes) {
+    const cleanCode = code.replace(/\s+/g, ''); // Nettoyer le code des espaces
+    if (normalized.startsWith(cleanCode)) {
+      normalized = '0' + normalized.slice(cleanCode.length);
+      break;
+    }
+  }
+  
+  // Si le numéro commence par + mais n'a pas été remplacé, supprimer simplement le +
+  if (normalized.startsWith('+')) {
+    normalized = normalized.slice(1);
+  }
+  
+  // Supprimer tous les caractères non numériques restants
+  return normalized.replace(/\D/g, "");
 }
 
   const copyToClipboard = (text, field) => {
@@ -1383,7 +1654,7 @@ useEffect(() => {
   });
         let message = `✅ Demande de retrait soumise !\n\n` +
           `ID: ${result.withdrawalId}\n` +
-           `📅 Date: ${formattedDate}\n` +
+           `Date: ${formattedDate}\n` +
           `Montant: ${formatAmount(numericAmount)} CDF\n` +
           `Frais: ${formatAmount(fees)} CDF\n` +
           `À recevoir: ${formatAmount(totalReceived)} CDF\n` +

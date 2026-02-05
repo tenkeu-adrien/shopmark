@@ -932,7 +932,7 @@ const handleParticipate = async (level) => {
           <div className="bg-white backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
             <Wallet className="w-10 h-10 text-blue-500 mb-3" />
             <span className="font-bold text-[19px] text-[#000] mb-1">
-              {formatAmount(wallet?.balances?.wallet?.amount || 0)} CDF
+              {formatAmount(wallet?.balances?.wallet?.amount || 0)}<span className="text-xs"> CDF</span>
             </span>
             <span className="font-medium text-lg text-gray-600">Solde disponible</span>
             <p className="text-[10px] text-gray-500 mt-1">Pour investissements/retraits</p>
@@ -942,7 +942,7 @@ const handleParticipate = async (level) => {
           <div className="bg-white backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 border border-gray-700/50 hover:bg-amber-50 hover:shadow-lg">
             <TrendingUp className="w-10 h-10 text-emerald-500 mb-3" />
             <span className="font-bold text-[19px] text-[#000] mb-1">
-              {formatAmount(wallet?.balances?.action?.amount || 0)} CDF
+              {formatAmount(wallet?.balances?.action?.amount || 0)}<span className="text-xs"> CDF</span>
             </span>
             <span className="font-medium text-lg text-gray-600">Solde investi</span>
             <p className="text-xs text-gray-500 mt-1">Actuellement en action</p>
@@ -1061,7 +1061,7 @@ const handleParticipate = async (level) => {
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-amber-500" />
                           <span className="text-gray-700">
-                            Investissement : <strong className="text-gray-900">{formatAmount(level.requiredAmount)} CDF</strong>
+                            Investissement : <strong className="text-gray-900">{formatAmount(level.requiredAmount)} <span className="text-xs"> CDF</span></strong>
                           </span>
                         </div>
                         
@@ -1075,7 +1075,7 @@ const handleParticipate = async (level) => {
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-green-500" />
                           <span className="text-gray-700">
-                            Gains journaliers : <strong className="text-green-600">{formatAmount(level.dailyGain)} CDF</strong>
+                            Gains journaliers : <strong className="text-green-600">{formatAmount(level.dailyGain)}<span className="text-xs"> CDF</span></strong>
                             <span className="text-xs text-gray-500 ml-1">({level.dailyReturnRate * 100}%)</span>
                           </span>
                         </div>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -151,7 +152,7 @@ console.log("ok je log des textes" )
           {/* Navigation principale */}
           <nav className="flex-1 px-2 sm:px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
-              <a
+              <Link
                 key={item.name}
                 href={item.href}
                 className={`
@@ -165,7 +166,7 @@ console.log("ok je log des textes" )
               >
                 <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
                 <span className="flex-1 truncate">{item.name}</span>
-              </a>
+              </Link>
             ))}
           </nav>
 
