@@ -383,7 +383,7 @@ export default function DepotPage() {
       };
 
       const result = await financeService.createDeposit(userInfo.uid, depositData);
-
+       const now = new Date();
       setIsProcessing(false);
         const formattedDate = now.toLocaleDateString('fr-FR', {
     weekday: 'long',
