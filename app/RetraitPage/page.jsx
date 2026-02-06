@@ -1653,6 +1653,7 @@ function normalizePhone(phone) {
     minute: '2-digit'
   });
         let message = `✅ Demande de retrait soumise !\n\n` +
+        
           `ID: ${result.withdrawalId}\n` +
            `Date: ${formattedDate}\n` +
           `Montant: ${formatAmount(numericAmount)} CDF\n` +

@@ -35,14 +35,19 @@ import DashboardCard from '@/components/DashboardCard';
 import Drawer from '@/components/Drawer';
 import { auth, db } from '@/lib/firebase';
 import { 
+  collection, 
+  getDocs, 
   doc, 
   updateDoc,
-  getDoc
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import BackButton from '@/components/BackButton';
-import { useDashboardStore } from '@/lib/store';
 
-export default function TransactionsPageOptimized() {
+export default function TransactionsPage() {
   const searchParams = useSearchParams();
   const initialFilter = searchParams.get('status') || 'all';
   const initialType = searchParams.get('type') || 'all';
@@ -50,40 +55,65 @@ export default function TransactionsPageOptimized() {
   const [filter, setFilter] = useState(initialFilter);
   const [typeFilter, setTypeFilter] = useState(initialType);
   const [search, setSearch] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    confirmed: 0,
+    rejected: 0,
+    totalAmount: 0
+  });
   
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
 
-  // Utiliser le store
-  const {
-    dashboardData,
-    loadingStates,
-    fetchTransactions,
-    fetchDashboardStats,
-    invalidateCache
-  } = useDashboardStore();
-
-  const transactions = dashboardData.transactions;
-  const loading = loadingStates.transactions;
-
-  console.log('ok transactions optimisées');
-
-  // Charger les transactions au montage
+  console.log('ok nous sommes dans transactions')
   useEffect(() => {
-    fetchTransactions();
+    loadTransactions();
+    const interval = setInterval(loadTransactions, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Calculer les stats à partir des transactions en cache
-  const stats = {
-    total: transactions.length,
-    pending: transactions.filter(t => t.status === 'pending').length,
-    confirmed: transactions.filter(t => t.status === 'confirmed').length,
-    rejected: transactions.filter(t => t.status === 'rejected').length,
-    totalAmount: transactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      
+      let transactionsQuery = query(
+        collection(db, 'transactions'),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const transactionsSnapshot = await getDocs(transactionsQuery);
+      const transactionsData = transactionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().createdAt?.toDate?.() || new Date()
+      }));
+
+      const totalAmount = transactionsData.reduce((sum, t) => sum + t.amount, 0);
+      const pending = transactionsData.filter(t => t.status === 'pending').length;
+      const confirmed = transactionsData.filter(t => t.status === 'confirmed').length;
+      const rejected = transactionsData.filter(t => t.status === 'rejected').length;
+
+      setStats({
+        total: transactionsData.length,
+        pending,
+        confirmed,
+        rejected,
+        totalAmount
+      });
+
+      setTransactions(transactionsData);
+    } catch (error) {
+      console.error('Erreur chargemment transactions:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadTransactionDetails = async (transactionId) => {
@@ -224,15 +254,7 @@ export default function TransactionsPageOptimized() {
 
       alert(`Transaction ${action === 'approve' ? 'approuvée' : 'rejetée'} avec succès !`);
       
-      // Invalider le cache et recharger
-      invalidateCache('transactions');
-      invalidateCache('stats');
-      invalidateCache('recentActivity');
-      
-      await Promise.all([
-        fetchTransactions(true),
-        fetchDashboardStats(true)
-      ]);
+      await loadTransactions();
       
     } catch (error) {
       console.error('Erreur action transaction:', error);
@@ -285,16 +307,30 @@ export default function TransactionsPageOptimized() {
     });
   };
 
-  const handleRefresh = async () => {
-    invalidateCache('transactions');
-    invalidateCache('stats');
-    await Promise.all([
-      fetchTransactions(true),
-      fetchDashboardStats(true)
-    ]);
+  const exportTransactions = () => {
+    const csv = [
+      ['ID', 'Type', 'Utilisateur', 'Montant', 'Statut', 'Date', 'Méthode', 'Notes'],
+      ...filteredTransactions.map(t => [
+        t.transactionId || t.id,
+        t.type === 'deposit' || t.depositId ? 'Dépôt' : 'Retrait',
+        t.userName || t.userEmail,
+        t.amount,
+        t.status,
+        formatDate(t.date),
+        t.paymentMethod,
+        t.adminNotes || ''
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
   };
 
-  if (loading && transactions.length === 0) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -304,8 +340,9 @@ export default function TransactionsPageOptimized() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <BackButton />
-      
+
+
+       <BackButton />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
@@ -314,13 +351,19 @@ export default function TransactionsPageOptimized() {
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button 
-            onClick={handleRefresh}
-            disabled={loading}
-            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm sm:text-base disabled:opacity-50"
+            onClick={loadTransactions}
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4" />
             <span className="hidden sm:inline">Actualiser</span>
           </button>
+          {/* <button 
+            onClick={exportTransactions}
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm sm:text-base"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exporter</span>
+          </button> */}
         </div>
       </div>
 
@@ -564,8 +607,163 @@ export default function TransactionsPageOptimized() {
         )}
       </DashboardCard>
 
-      {/* Drawer de visualisation - Inchangé */}
-      {/* ... Votre code drawer existant ... */}
+      {/* Drawer de visualisation */}
+      <Drawer
+        isOpen={viewDrawerOpen}
+        onClose={() => setViewDrawerOpen(false)}
+        title={`Détails de la transaction`}
+        size="lg"
+        loading={drawerLoading}
+      >
+        {transactionDetails && (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">ID Transaction</p>
+                <p className="font-mono text-gray-900 font-bold text-sm sm:text-base truncate">{transactionDetails.transactionId || transactionDetails.id}</p>
+              </div>
+              <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[transactionDetails.status]}`}>
+                {getStatusIcon(transactionDetails.status)}
+                <span className="ml-1 sm:ml-2">
+                  {transactionDetails.status === 'confirmed' ? 'Confirmé' : 
+                   transactionDetails.status === 'pending' ? 'En attente' : 'Rejeté'}
+                </span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <DollarSign className="w-4 sm:w-5 h-4 sm:h-5" />
+                    Montant
+                  </h4>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm sm:text-base">Montant {transactionDetails.type === 'deposit' ? 'déposé' : 'retiré'}:</span>
+                      <span className={`text-lg sm:text-xl md:text-2xl font-bold ${transactionDetails.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                        {transactionDetails.amount?.toLocaleString('fr-FR')} CDF
+                      </span>
+                    </div>
+                    {transactionDetails.fees > 0 && (
+                      <div className="flex justify-between items-center border-t border-gray-100 pt-2 sm:pt-3">
+                        <span className="text-gray-600 text-sm sm:text-base">Frais:</span>
+                        <span className="text-base sm:text-lg font-semibold text-red-600">
+                          -{transactionDetails.fees.toLocaleString('fr-FR')} CDF
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {(transactionDetails.recipientName || transactionDetails.recipientPhone) && (
+                  <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                    <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                      <User className="w-4 sm:w-5 h-4 sm:h-5" />
+                      Bénéficiaire
+                    </h4>
+                    <div className="space-y-2">
+                      {transactionDetails.recipientName && (
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">Nom</p>
+                          <p className="text-gray-900 font-medium text-sm sm:text-base">{transactionDetails.recipientName}</p>
+                        </div>
+                      )}
+                      {transactionDetails.recipientPhone && (
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">Téléphone</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Phone className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 font-medium text-sm sm:text-base">{transactionDetails.recipientPhone}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <User className="w-4 sm:w-5 h-4 sm:h-5" />
+                    Utilisateur
+                  </h4>
+                  <div className="space-y-2 sm:space-y-3">
+                    {transactionDetails.userInfo && (
+                      <>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">Nom</p>
+                          <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.displayName || 'Non spécifié'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">Email</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Mail className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.email}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">Téléphone</p>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Phone className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                            <p className="text-gray-900 text-sm sm:text-base">{transactionDetails.userInfo.phone || 'Non spécifié'}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-500">ID Utilisateur</p>
+                      <p className="text-gray-900 font-mono text-xs sm:text-sm truncate">{transactionDetails.userId}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4">
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <FileText className="w-4 sm:w-5 h-4 sm:h-5" />
+                    Détails
+                  </h4>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-500">Type</p>
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${typeColors[transactionDetails.type === 'deposit' ? 'deposit' : 'withdrawal']}`}>
+                        {transactionDetails.type === 'deposit' ? 'Dépôt' : 'Retrait'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-500">Méthode de paiement</p>
+                      <p className="text-gray-900 text-sm sm:text-base flex items-center gap-1 sm:gap-2">
+                        {transactionDetails.paymentMethod?.includes('Orange') ? (
+                          <Smartphone className="w-3 sm:w-4 h-3 sm:h-4 text-orange-600" />
+                        ) : transactionDetails.paymentMethod?.includes('Airtel') ? (
+                          <Smartphone className="w-3 sm:w-4 h-3 sm:h-4 text-red-600" />
+                        ) : (
+                          <CreditCard className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
+                        )}
+                        {transactionDetails.paymentMethod || 'Non spécifié'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-500">Créée le</p>
+                      <p className="text-gray-900 text-sm sm:text-base flex items-center gap-1 sm:gap-2">
+                        <Calendar className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
+                        {formatDate(transactionDetails.createdAt)}
+                      </p>
+                    </div>
+                    {transactionDetails.adminNotes && (
+                      <div>
+                        <p className="text-xs sm:text-sm text-gray-500">Notes admin</p>
+                        <p className="text-gray-900 bg-yellow-50 p-2 rounded text-xs sm:text-sm">{transactionDetails.adminNotes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
