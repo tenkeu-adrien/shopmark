@@ -385,11 +385,17 @@ export default function DepotPage() {
       const result = await financeService.createDeposit(userInfo.uid, depositData);
 
       setIsProcessing(false);
+        const formattedDate = now.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
       if (result.success) {
         let successMessage = `✅ Dépôt soumis avec succès !\n\n` +
-          `ID Transaction: ${result.depositId}\n`;
-        
+          `ID Transaction: ${result.depositId}\n` + `Date: ${formattedDate}\n` ;
+
         if (selectedMethod === "crypto") {
           successMessage += `Montant: ${usdtAmount} USDT (≈ ${formatAmount(finalAmount)} CDF)\n`;
         } else {
