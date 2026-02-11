@@ -4156,7 +4156,20 @@ export default function UtilisateursPage() {
     try {
       setDrawerLoading(true);
       
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      // ✅ OPTIMISATION: Lancer toutes les requêtes en parallèle avec Promise.all
+      // Au lieu de 3 requêtes séquentielles (~1.5s), on fait 3 requêtes parallèles (~0.5s)
+      const [userDoc, walletDoc, transactionsSnap] = await Promise.all([
+        getDoc(doc(db, 'users', userId)),
+        getDoc(doc(db, 'wallets', userId)),
+        getDocs(query(
+          collection(db, 'transactions'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        ))
+      ]);
+      
+      // Traiter les résultats
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setUserDetails({
@@ -4174,7 +4187,6 @@ export default function UtilisateursPage() {
         });
       }
 
-      const walletDoc = await getDoc(doc(db, 'wallets', userId));
       if (walletDoc.exists()) {
         const walletData = walletDoc.data();
         setUserWallet({
@@ -4185,21 +4197,14 @@ export default function UtilisateursPage() {
           totalEarned: walletData.stats?.totalEarned || 0,
           totalInvested: walletData.stats?.totalInvested || 0,
           totalWithdrawn: walletData.stats?.totalWithdrawn || 0,
-          lastDailyGainAt: walletData.stats?.lastDailyGainAt?.toDate?.() || null, 
-          totalDailyGains: walletData.stats?.totalDailyGains || 0, 
+          lastDailyGainAt: walletData.stats?.lastDailyGainAt?.toDate?.() || null,
+          totalDailyGains: walletData.stats?.totalDailyGains || 0,
           balanceHistory: walletData.balanceHistory || []
         });
         
         setBalanceHistory(walletData.balanceHistory || []);
       }
 
-      const transactionsQuery = query(
-        collection(db, 'transactions'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(10)
-      );
-      const transactionsSnap = await getDocs(transactionsQuery);
       setUserTransactions(transactionsSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()

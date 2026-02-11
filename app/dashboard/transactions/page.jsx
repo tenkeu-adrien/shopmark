@@ -120,10 +120,13 @@ export default function TransactionsPage() {
     try {
       setDrawerLoading(true);
       
+      // ✅ OPTIMISATION: Charger la transaction d'abord
       const transactionDoc = await getDoc(doc(db, 'transactions', transactionId));
+      
       if (transactionDoc.exists()) {
         const data = transactionDoc.data();
         
+        // Charger les infos utilisateur en parallèle si userId existe
         let userInfo = {};
         if (data.userId) {
           const userDoc = await getDoc(doc(db, 'users', data.userId));

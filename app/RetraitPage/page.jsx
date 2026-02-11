@@ -1208,7 +1208,7 @@ useEffect(() => {
     const numericAmount = parseInt(amount.replace(/\D/g, "")) || 0;
     
     if (selectedMethod === "crypto") {
-      return Math.round(numericAmount * 0.05);
+      return Math.round(numericAmount * 0.10);
     }
     return Math.round(numericAmount * 0.10);
   };
