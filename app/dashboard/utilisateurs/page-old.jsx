@@ -4314,15 +4314,15 @@ Cliquez sur OK pour continuer.`)) {
             lastGainDate.getMonth() === today.getMonth() &&
             lastGainDate.getFullYear() === today.getFullYear();
           
-          if (alreadyProcessedToday) {
-            skippedUsers.push({
-              userId: investment.userId,
-              reason: 'Déjà payé aujourd\'hui',
-              lastGainDate,
-              investment
-            });
-            continue;
-          }
+          // if (alreadyProcessedToday) {
+          //   skippedUsers.push({
+          //     userId: investment.userId,
+          //     reason: 'Déjà payé aujourd\'hui',
+          //     lastGainDate,
+          //     investment
+          //   });
+          //   continue;
+          // }
           
           // Vérifier si l'investissement est toujours valide
           const endDate = investment.scheduledEndDate?.toDate?.();
@@ -4409,9 +4409,9 @@ Cliquez sur OK pour continuer.`)) {
                 lastGainDate.getMonth() === today.getMonth() &&
                 lastGainDate.getFullYear() === today.getFullYear();
               
-              if (alreadyProcessed) {
-                throw new Error('Déjà payé aujourd\'hui');
-              }
+              // if (alreadyProcessed) {
+              //   throw new Error('Déjà payé aujourd\'hui');
+              // }
 
               // Mettre à jour le wallet
               transaction.update(walletRef, {
