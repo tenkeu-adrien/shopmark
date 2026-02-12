@@ -4287,23 +4287,23 @@ Cliquez sur OK pour continuer.`)) {
             continue;
           }
           
-          const walletData = walletSnap.data();
-          const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
+          // const walletData = walletSnap.data();
+          // const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
           
-          const alreadyProcessedToday = lastGainDate && 
-            lastGainDate.getDate() === today.getDate() &&
-            lastGainDate.getMonth() === today.getMonth() &&
-            lastGainDate.getFullYear() === today.getFullYear();
+          // const alreadyProcessedToday = lastGainDate && 
+          //   lastGainDate.getDate() === today.getDate() &&
+          //   lastGainDate.getMonth() === today.getMonth() &&
+          //   lastGainDate.getFullYear() === today.getFullYear();
           
-          if (alreadyProcessedToday) {
-            skippedUsers.push({
-              userId: investment.userId,
-              reason: 'Déjà payé aujourd\'hui',
-              lastGainDate,
-              investment
-            });
-            continue;
-          }
+          // if (alreadyProcessedToday) {
+          //   skippedUsers.push({
+          //     userId: investment.userId,
+          //     reason: 'Déjà payé aujourd\'hui',
+          //     lastGainDate,
+          //     investment
+          //   });
+          //   continue;
+          // }
           
           const endDate = investment.scheduledEndDate?.toDate?.();
           if (endDate && endDate < today) {
@@ -4402,17 +4402,17 @@ Cliquez sur OK pour continuer.`)) {
                 throw new Error('Portefeuille non trouvé');
               }
 
-              const walletData = walletSnap.data();
+              // const walletData = walletSnap.data();
               
-              const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
-              const alreadyProcessed = lastGainDate && 
-                lastGainDate.getDate() === today.getDate() &&
-                lastGainDate.getMonth() === today.getMonth() &&
-                lastGainDate.getFullYear() === today.getFullYear();
+              // const lastGainDate = walletData.stats?.lastDailyGainAt?.toDate?.();
+              // const alreadyProcessed = lastGainDate && 
+              //   lastGainDate.getDate() === today.getDate() &&
+              //   lastGainDate.getMonth() === today.getMonth() &&
+              //   lastGainDate.getFullYear() === today.getFullYear();
               
-              if (alreadyProcessed) {
-                throw new Error('Déjà payé aujourd\'hui');
-              }
+              // if (alreadyProcessed) {
+              //   throw new Error('Déjà payé aujourd\'hui');
+              // }
 
               transaction.update(walletRef, {
                 'balances.wallet.amount': increment(dailyGain),
