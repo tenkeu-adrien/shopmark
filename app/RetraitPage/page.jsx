@@ -1208,9 +1208,9 @@ useEffect(() => {
     const numericAmount = parseInt(amount.replace(/\D/g, "")) || 0;
     
     if (selectedMethod === "crypto") {
-      return Math.round(numericAmount * 0.10);
+      return Math.round(numericAmount * 0.20);
     }
-    return Math.round(numericAmount * 0.10);
+    return Math.round(numericAmount * 0.20);
   };
 
   const generateTransactionId = () => {
@@ -2315,7 +2315,7 @@ function normalizePhone(phone) {
                           
                           <div className="flex justify-between">
                             <span className={selectedMethod === "crypto" ? "text-amber-900" : "text-green-900"}>
-                              Frais ({selectedMethod === "crypto" ? "10%" : "10%"}) :
+                              Frais ({selectedMethod === "crypto" ? "20%" : "20%"}) :
                             </span>
                             <span className="font-semibold text-red-600">-{formatAmount(fees)} CDF</span>
                           </div>
@@ -2349,7 +2349,7 @@ function normalizePhone(phone) {
                             {selectedMethod === "crypto" ? (
                               <>
                                 <li>• Délai de traitement : 15-30 minutes</li>
-                                <li>• Frais de retrait : 10% du montant retiré</li>
+                                <li>• Frais de retrait : 20% du montant retiré</li>
                                 <li>• Minimum : 5,000 CDF pour les retraits crypto</li>
                                 <li>• Utilisez toujours une adresse BEP20 valide</li>
                                 <li>• Vérifiez votre adresse avant de confirmer</li>
@@ -2360,7 +2360,7 @@ function normalizePhone(phone) {
                               <>
                                 <li>• Délai de traitement : Moins de 30min (max 24h)</li>
                                 <li>• Horaires : Lundi au samedi, 8h00 à 16h00</li>
-                                <li>• Frais de retrait : 10% du montant retiré</li>
+                                <li>• Frais de retrait : 20% du montant retiré</li>
                                 <li>• Utilisez toujours le numéro agent officiel : {getAgentNumber()}</li>
                                 <li>• Agent : {getAgentName()}</li>
                                 <li>• Vérifiez votre numéro avant de confirmer</li>
@@ -2400,7 +2400,7 @@ function normalizePhone(phone) {
                   <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                     <div>
                       <span className="text-gray-600">Frais de retrait</span>
-                      <p className="text-xs text-gray-500">({selectedMethod === "crypto" ? "10%" : "10%"} du montant)</p>
+                      <p className="text-xs text-gray-500">({selectedMethod === "crypto" ? "20%" : "20%"} du montant)</p>
                     </div>
                     <span className="text-lg font-semibold text-red-600">
                       -{formatAmount(fees)} CDF
@@ -2587,7 +2587,7 @@ function normalizePhone(phone) {
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600">•</span>
                   <span className="text-sm">
-                    <strong>Frais de retrait :</strong> 10% (mobiles) 
+                    <strong>Frais de retrait :</strong> 20% (mobiles) 
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
