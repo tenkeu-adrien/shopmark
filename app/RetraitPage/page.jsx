@@ -1163,7 +1163,7 @@ useEffect(() => {
       icon: <MPesaIcon className="w-6 h-6" />,
       description: "Transfert mobile M-Pesa",
       processingTime: "Moins de 30min",
-      fees: "10%",
+      fees: "20%",
       minAmount: 1500,
       maxAmount: 1000000000000,
       color: "from-green-500 to-green-600",
@@ -1601,9 +1601,35 @@ function normalizePhone(phone) {
     return true;
   };
 
+  // Fonction pour vérifier si on est dans les heures ouvrables (8h-16h heure de Kinshasa)
+  const isWithinBusinessHours = () => {
+    // Créer une date avec le timezone de Kinshasa (UTC+1)
+    const now = new Date();
+    const kinshasaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Kinshasa' }));
+    const currentHour = kinshasaTime.getHours();
+    
+    // Vérifier si l'heure est entre 8h et 16h
+    return currentHour >= 8 && currentHour < 16;
+  };
+
   const handleWithdrawal = async () => {
     if (!validateWithdrawal()) return;
 
+    // Vérifier les heures ouvrables
+    if (!isWithinBusinessHours()) {
+      const now = new Date();
+      const kinshasaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Kinshasa' }));
+      const currentHour = kinshasaTime.getHours();
+      const currentMinute = kinshasaTime.getMinutes();
+      
+      alert(
+        `⏰ Retraits disponibles uniquement entre 8h et 16h\n\n` +
+        `Heure actuelle à Kinshasa: ${currentHour}h${currentMinute.toString().padStart(2, '0')}\n\n` +
+        `Les retraits sont disponibles de 8h00 à 16h00 .\n` +
+        `Veuillez réessayer pendant les heures ouvrables.`
+      );
+      return;
+    }
      
     if (!userInfo.uid) {
       alert('Veuillez vous connecter pour effectuer un retrait.');
@@ -1798,6 +1824,39 @@ function normalizePhone(phone) {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Bandeau informatif des heures de retrait */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 rounded-xl p-4 border ${
+            isWithinBusinessHours()
+              ? "bg-green-50 border-green-200"
+              : "bg-amber-50 border-amber-200"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Clock className={`w-5 h-5 ${
+              isWithinBusinessHours() ? "text-green-600" : "text-amber-600"
+            }`} />
+            <div className="flex-1">
+              <p className={`font-medium ${
+                isWithinBusinessHours() ? "text-green-900" : "text-amber-900"
+              }`}>
+                {isWithinBusinessHours() 
+                  ? "✅ Retraits disponibles" 
+                  : "⏰ Retraits temporairement indisponibles"
+                }
+              </p>
+              <p className={`text-sm ${
+                isWithinBusinessHours() ? "text-green-700" : "text-amber-700"
+              }`}>
+                Les retraits sont disponibles de 8h00 à 16h00 
+                {!isWithinBusinessHours() && " - Veuillez réessayer pendant les heures ouvrables"}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <motion.div
@@ -2532,9 +2591,9 @@ function normalizePhone(phone) {
               
               <button
                 onClick={handleWithdrawal}
-                disabled={isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0)}
+                disabled={isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours()}
                 className={`w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all ${
-                  isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0)
+                  isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours()
                     ? "bg-gray-300 cursor-not-allowed text-gray-500"
                     : selectedMethod === "crypto"
                     ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg hover:shadow-xl"
@@ -2546,16 +2605,22 @@ function normalizePhone(phone) {
                     <Clock className="w-5 h-5 animate-spin" />
                     Traitement en cours...
                   </span>
+                ) : !isWithinBusinessHours() ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Retraits disponibles de 8h à 16h
+                  </span>
                 ) : (
                   "Confirmer le retrait"
                 )}
               </button>
               
-              {(!numericAmount || !selectedMethod) && (
+              {(!numericAmount || !selectedMethod || !isWithinBusinessHours()) && (
                 <p className="text-sm text-gray-500 text-center mt-3">
                   {!numericAmount && "Saisissez un montant pour continuer"}
                   {numericAmount && !selectedMethod && "Sélectionnez un moyen de retrait"}
                   {numericAmount && selectedMethod && numericAmount < (selectedMethodData?.minAmount || 0) && `Minimum ${formatAmount(selectedMethodData.minAmount)} CDF`}
+                  {numericAmount && selectedMethod && numericAmount >= (selectedMethodData?.minAmount || 0) && !isWithinBusinessHours() && "Les retraits sont disponibles de 8h00 à 16h00 "}
                 </p>
               )}
             </motion.div>
