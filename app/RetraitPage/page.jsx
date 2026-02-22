@@ -903,7 +903,7 @@ export default function RetraitPage() {
   
 
 
-const [recipientName, setRecipientName] = useState(user.name || '');
+const [recipientName, setRecipientName] = useState(user?.name || '');
 
 // 2. Ajouter un useEffect pour mettre à jour quand le profil charge
 useEffect(() => {
