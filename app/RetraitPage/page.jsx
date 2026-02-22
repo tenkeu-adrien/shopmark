@@ -899,7 +899,7 @@ export default function RetraitPage() {
     updateProfile,
     source,
     hasProfile
-  } = useWithdrawalProfile(user.uid, userInfo);
+  } = useWithdrawalProfile(user?.uid, userInfo);
   
 
 
@@ -936,6 +936,12 @@ useEffect(() => {
   });
 
   const [cryptoAddress, setCryptoAddress] = useState("");
+
+  // États pour le système de limitation des retraits par niveau
+  const [userLevel, setUserLevel] = useState(null); // LV1, LV2, etc.
+  const [directReferrals, setDirectReferrals] = useState([]); // Liste des filleuls directs
+  const [withdrawalLimit, setWithdrawalLimit] = useState(1.0); // Pourcentage de retrait autorisé (0.0 à 1.0)
+  const [withdrawalLimitLoading, setWithdrawalLimitLoading] = useState(true);
 
   // Charger les données utilisateur et solde
   useEffect(() => {
@@ -1058,6 +1064,106 @@ useEffect(() => {
     loadAgents();
   }, []);
 
+  // Charger le niveau de l'utilisateur et ses parrainages directs
+  useEffect(() => {
+    const loadUserLevelAndReferrals = async () => {
+      if (!userInfo.uid) {
+        setWithdrawalLimitLoading(false);
+        return;
+      }
+
+      try {
+        setWithdrawalLimitLoading(true);
+
+        // 1. Récupérer le niveau d'investissement actif de l'utilisateur
+        const userLevelsQuery = query(
+          collection(db, 'user_levels'),
+          where('userId', '==', userInfo.uid),
+          where('status', '==', 'active')
+        );
+        const userLevelsSnapshot = await getDocs(userLevelsQuery);
+        
+        let highestLevel = null;
+        if (!userLevelsSnapshot.empty) {
+          // Prendre le niveau le plus élevé si plusieurs investissements actifs
+          userLevelsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const levelName = data.levelName || data.levelId; // Ex: "LV1", "LV2", etc.
+            
+            if (!highestLevel || levelName > highestLevel) {
+              highestLevel = levelName;
+            }
+          });
+        }
+
+        // 2. Récupérer les parrainages directs (filleuls de niveau 1)
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('referredBy', '==', userInfo.uid)
+        );
+        const usersSnapshot = await getDocs(usersQuery);
+        
+        // 3. Pour chaque filleul, récupérer son niveau d'investissement
+        const referralsWithLevels = [];
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = userDoc.data();
+          const referralId = userDoc.id;
+          
+          // Récupérer le niveau d'investissement du filleul
+          const referralLevelsQuery = query(
+            collection(db, 'user_levels'),
+            where('userId', '==', referralId),
+            where('status', '==', 'active')
+          );
+          const referralLevelsSnapshot = await getDocs(referralLevelsQuery);
+          
+          let referralLevel = null;
+          if (!referralLevelsSnapshot.empty) {
+            // Prendre le niveau le plus élevé
+            referralLevelsSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              const levelName = data.levelName || data.levelId;
+              
+              if (!referralLevel || levelName > referralLevel) {
+                referralLevel = levelName;
+              }
+            });
+          }
+          
+          referralsWithLevels.push({
+            id: referralId,
+            name: userData.displayName || userData.email,
+            level: referralLevel
+          });
+        }
+
+        // 4. Calculer la limite de retrait
+        const limit = calculateWithdrawalLimit(highestLevel, referralsWithLevels);
+
+        // 5. Mettre à jour les états
+        setUserLevel(highestLevel);
+        setDirectReferrals(referralsWithLevels);
+        setWithdrawalLimit(limit);
+
+        console.log('📊 Limite de retrait calculée:', {
+          userLevel: highestLevel,
+          referralsCount: referralsWithLevels.length,
+          referralsWithDifferentLevels: new Set(referralsWithLevels.map(r => r.level).filter(Boolean)).size,
+          withdrawalLimit: `${Math.round(limit * 100)}%`
+        });
+
+      } catch (error) {
+        console.error('❌ Erreur chargement niveau et parrainages:', error);
+        // En cas d'erreur, autoriser 50% par défaut
+        setWithdrawalLimit(0.50);
+      } finally {
+        setWithdrawalLimitLoading(false);
+      }
+    };
+
+    loadUserLevelAndReferrals();
+  }, [userInfo.uid]);
+
  const autoSaveProfileAfterWithdrawal = async () => {
   if (!user.uid) return;
   
@@ -1110,6 +1216,61 @@ useEffect(() => {
     console.error('Erreur sauvegarde automatique profil:', error);
   }
 };
+
+  // Fonction pour vérifier si l'utilisateur a 3 parrainages directs de niveaux différents
+  const hasThreeDifferentLevelReferrals = (referrals) => {
+    if (!referrals || referrals.length < 3) return false;
+    
+    // Extraire les niveaux uniques
+    const uniqueLevels = new Set(referrals.map(ref => ref.level).filter(Boolean));
+    
+    // Vérifier qu'il y a au moins 3 niveaux différents
+    return uniqueLevels.size >= 3;
+  };
+
+  // Fonction pour calculer la limite de retrait selon le niveau
+  const calculateWithdrawalLimit = (level, referrals) => {
+    // Si l'utilisateur a 3 parrainages de niveaux différents, il peut retirer 100%
+    if (hasThreeDifferentLevelReferrals(referrals)) {
+      return 1.0; // 100%
+    }
+    
+    // Sinon, appliquer la limite selon le niveau
+    const limits = {
+      'LV1': 0.50,  // 50%
+      'LV2': 0.50,  // 50%
+      'LV3': 0.50,  // 50%
+      'LV4': 0.50,  // 50%
+      'LV5': 0.50,  // 50%
+      'LV6': 0.40,  // 40%
+      'LV7': 0.30,  // 30%
+      'LV8': 0.30,  // 30%
+      'LV9': 0.50,  // 50%
+      'LV10': 0.50, // 50%
+    };
+    
+    return limits[level] || 0.50; // Par défaut 50%
+  };
+
+  // Fonction pour obtenir le message de limite
+  const getWithdrawalLimitMessage = () => {
+    if (withdrawalLimit >= 1.0) {
+      return {
+        type: 'success',
+        message: '✅ Vous pouvez retirer 100% de votre solde',
+        detail: 'Vous avez 3 parrainages directs de niveaux différents'
+      };
+    }
+    
+    const percentage = Math.round(withdrawalLimit * 100);
+    const maxAmount = Math.floor(accountBalance * withdrawalLimit);
+    
+    return {
+      type: 'warning',
+      message: `⚠️ Limite de retrait: ${percentage}% de votre solde`,
+      detail: `Maximum: ${formatAmount(maxAmount)} CDF. Pour débloquer 100%, invitez 3 personnes de niveaux différents.`
+    };
+  };
 
   const paymentMethods = [
     {
@@ -1245,9 +1406,11 @@ useEffect(() => {
   };
 
   const handleMaxAmount = () => {
+    // Calculer le montant maximum en tenant compte de la limite de retrait
+    const maxByLimit = Math.floor(accountBalance * withdrawalLimit);
     const maxAllowed = Math.min(
-      accountBalance,
-      selectedMethodData?.maxAmount || accountBalance
+      maxByLimit,
+      selectedMethodData?.maxAmount || maxByLimit
     );
     setAmount(maxAllowed.toString());
     setTransactionId(generateTransactionId());
@@ -1598,6 +1761,30 @@ function normalizePhone(phone) {
       }
     }
 
+    // Vérifier la limite de retrait selon le niveau et les parrainages
+    const maxAllowedAmount = Math.floor(accountBalance * withdrawalLimit);
+    if (numericAmount > maxAllowedAmount) {
+      const percentage = Math.round(withdrawalLimit * 100);
+      const uniqueLevels = new Set(directReferrals.map(r => r.level).filter(Boolean)).size;
+      
+      let message = `⚠️ Limite de retrait dépassée!\n\n`;
+      message += `Votre niveau: ${userLevel || 'Non défini'}\n`;
+      message += `Limite actuelle: ${percentage}% de votre solde\n`;
+      message += `Montant maximum: ${formatAmount(maxAllowedAmount)} CDF\n`;
+      message += `Montant demandé: ${formatAmount(numericAmount)} CDF\n\n`;
+      
+      if (withdrawalLimit < 1.0) {
+        message += `📢 Pour débloquer 100% de votre solde:\n`;
+        message += `• Invitez 3 personnes de niveaux différents\n`;
+        message += `• Actuellement: ${directReferrals.length} parrainage(s) direct(s)\n`;
+        message += `• Niveaux différents: ${uniqueLevels}\n\n`;
+        message += `Ajustez le montant ou invitez plus de personnes.`;
+      }
+      
+      alert(message);
+      return false;
+    }
+
     return true;
   };
 
@@ -1892,6 +2079,69 @@ function normalizePhone(phone) {
                 <span className="text-sm">Transfert 100% sécurisé</span>
               </div>
             </motion.div>
+
+            {/* Bandeau de limite de retrait */}
+            {!withdrawalLimitLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className={`rounded-xl p-4 border ${
+                  withdrawalLimit >= 1.0
+                    ? "bg-green-50 border-green-200"
+                    : "bg-amber-50 border-amber-200"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    withdrawalLimit >= 1.0 ? "bg-green-100" : "bg-amber-100"
+                  }`}>
+                    {withdrawalLimit >= 1.0 ? (
+                      <CheckCircle className={`w-5 h-5 text-green-600`} />
+                    ) : (
+                      <AlertCircle className={`w-5 h-5 text-amber-600`} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-semibold ${
+                      withdrawalLimit >= 1.0 ? "text-green-900" : "text-amber-900"
+                    }`}>
+                      {withdrawalLimit >= 1.0 
+                        ? "✅ Retrait illimité activé" 
+                        : `⚠️ Limite de retrait: ${Math.round(withdrawalLimit * 100)}%`
+                      }
+                    </p>
+                    <p className={`text-sm mt-1 ${
+                      withdrawalLimit >= 1.0 ? "text-green-700" : "text-amber-700"
+                    }`}>
+                      {withdrawalLimit >= 1.0 ? (
+                        <>
+                          Vous avez {directReferrals.length} parrainage(s) direct(s) de niveaux différents. 
+                          Vous pouvez retirer 100% de votre solde.
+                        </>
+                      ) : (
+                        <>
+                          Niveau: {userLevel || 'Non défini'} • 
+                          Maximum: {formatAmount(Math.floor(accountBalance * withdrawalLimit))} CDF
+                        </>
+                      )}
+                    </p>
+                    {withdrawalLimit < 1.0 && (
+                      <div className="mt-2 p-2 bg-white rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-800 font-medium">
+                          💡 Pour débloquer 100% de votre solde:
+                        </p>
+                        <ul className="text-xs text-amber-700 mt-1 space-y-1">
+                          <li>• Invitez 3 personnes de niveaux d'investissement différents</li>
+                          <li>• Actuellement: {directReferrals.length} parrainage(s) direct(s)</li>
+                          <li>• Niveaux différents: {new Set(directReferrals.map(r => r.level).filter(Boolean)).size}</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
