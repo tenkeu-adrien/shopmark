@@ -1099,7 +1099,7 @@ useEffect(() => {
         // 2. Récupérer les parrainages directs (filleuls de niveau 1)
         const usersQuery = query(
           collection(db, 'users'),
-          where('referredBy', '==', userInfo.uid)
+          where('referrerId', '==', userInfo.uid) // CORRECTION: referrerId au lieu de referredBy
         );
         const usersSnapshot = await getDocs(usersQuery);
         
