@@ -943,6 +943,11 @@ useEffect(() => {
   const [withdrawalLimit, setWithdrawalLimit] = useState(1.0); // Pourcentage de retrait autorisé (0.0 à 1.0)
   const [withdrawalLimitLoading, setWithdrawalLimitLoading] = useState(true);
 
+  // États pour la contrainte d'un retrait par jour
+  const [hasWithdrawnToday, setHasWithdrawnToday] = useState(false); // Si l'utilisateur a déjà retiré aujourd'hui
+  const [lastWithdrawalDate, setLastWithdrawalDate] = useState(null); // Date du dernier retrait
+  const [checkingDailyLimit, setCheckingDailyLimit] = useState(true); // Chargement de la vérification
+
   // Charger les données utilisateur et solde
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -1162,6 +1167,82 @@ useEffect(() => {
     };
 
     loadUserLevelAndReferrals();
+  }, [userInfo.uid]);
+
+  // Vérifier si l'utilisateur a déjà fait un retrait aujourd'hui
+  useEffect(() => {
+    const checkDailyWithdrawalLimit = async () => {
+      if (!userInfo.uid) {
+        setCheckingDailyLimit(false);
+        return;
+      }
+
+      try {
+        setCheckingDailyLimit(true);
+
+        // CORRECTION: Calculer minuit en UTC+1 (Kinshasa) de manière fiable
+        // Ne pas utiliser toLocaleString qui dépend du navigateur
+        const now = new Date();
+        const utcTime = now.getTime();
+        const kinshasaOffset = 1 * 60 * 60 * 1000; // UTC+1 en millisecondes
+        const kinshasaTime = new Date(utcTime + kinshasaOffset);
+        
+        // Obtenir minuit en heure de Kinshasa
+        const todayStart = new Date(Date.UTC(
+          kinshasaTime.getUTCFullYear(),
+          kinshasaTime.getUTCMonth(),
+          kinshasaTime.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        // Ajuster pour UTC+1
+        todayStart.setTime(todayStart.getTime() - kinshasaOffset);
+
+        console.log('🕐 Vérification retrait quotidien:', {
+          now: now.toISOString(),
+          todayStart: todayStart.toISOString(),
+          kinshasaTime: kinshasaTime.toISOString()
+        });
+
+        // Requête pour trouver les retraits d'aujourd'hui
+        const withdrawalsQuery = query(
+          collection(db, 'withdrawals'),
+          where('userId', '==', userInfo.uid),
+          where('createdAt', '>=', todayStart),
+          where('status', 'in', ['pending', 'completed']) // Exclure les retraits rejetés
+        );
+
+        const withdrawalsSnapshot = await getDocs(withdrawalsQuery);
+
+        if (!withdrawalsSnapshot.empty) {
+          // L'utilisateur a déjà fait un retrait aujourd'hui
+          const lastWithdrawal = withdrawalsSnapshot.docs[0].data();
+          const withdrawalDate = lastWithdrawal.createdAt?.toDate();
+          
+          setHasWithdrawnToday(true);
+          setLastWithdrawalDate(withdrawalDate);
+
+          console.log('⚠️ Retrait déjà effectué aujourd\'hui:', {
+            date: withdrawalDate,
+            count: withdrawalsSnapshot.size
+          });
+        } else {
+          // Aucun retrait aujourd'hui
+          setHasWithdrawnToday(false);
+          setLastWithdrawalDate(null);
+
+          console.log('✅ Aucun retrait aujourd\'hui - Retrait autorisé');
+        }
+
+      } catch (error) {
+        console.error('❌ Erreur vérification retrait quotidien:', error);
+        // En cas d'erreur, autoriser le retrait par sécurité
+        setHasWithdrawnToday(false);
+      } finally {
+        setCheckingDailyLimit(false);
+      }
+    };
+
+    checkDailyWithdrawalLimit();
   }, [userInfo.uid]);
 
  const autoSaveProfileAfterWithdrawal = async () => {
@@ -1802,6 +1883,30 @@ function normalizePhone(phone) {
   const handleWithdrawal = async () => {
     if (!validateWithdrawal()) return;
 
+    // Vérifier si l'utilisateur a déjà fait un retrait aujourd'hui
+    if (hasWithdrawnToday) {
+      const formattedDate = lastWithdrawalDate 
+        ? lastWithdrawalDate.toLocaleString('fr-FR', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : 'aujourd\'hui';
+
+      alert(
+        `⚠️ Limite quotidienne atteinte!\n\n` +
+        `Vous avez déjà effectué un retrait aujourd'hui.\n\n` +
+        `Dernier retrait: ${formattedDate}\n\n` +
+        `📅 Règle: Un seul retrait par jour autorisé\n` +
+        `⏰ Prochain retrait possible: Demain à partir de 8h00\n\n` +
+        `Cette limite permet de mieux gérer les transactions et assurer la sécurité de votre compte.`
+      );
+      return;
+    }
+
     // Vérifier les heures ouvrables
     if (!isWithinBusinessHours()) {
       const now = new Date();
@@ -2043,6 +2148,60 @@ function normalizePhone(phone) {
             </div>
           </div>
         </motion.div>
+
+        {/* Bandeau de limite quotidienne (1 retrait par jour) */}
+        {/* Afficher immédiatement, même pendant le chargement */}
+        {(checkingDailyLimit || hasWithdrawnToday) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`mb-6 rounded-xl p-4 border ${
+              checkingDailyLimit 
+                ? "bg-blue-50 border-blue-200" 
+                : "bg-red-50 border-red-200"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {checkingDailyLimit ? (
+                <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              )}
+              <div className="flex-1">
+                {checkingDailyLimit ? (
+                  <>
+                    <p className="font-semibold text-blue-900">
+                      🔍 Vérification de la limite quotidienne...
+                    </p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Vérification de vos retraits d'aujourd'hui en cours...
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-red-900">
+                      ⛔ Limite quotidienne atteinte
+                    </p>
+                    <p className="text-sm text-red-700 mt-1">
+                      Vous avez déjà effectué un retrait aujourd'hui
+                      {lastWithdrawalDate && ` à ${lastWithdrawalDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}.
+                      Prochain retrait possible demain à partir de 8h00.
+                    </p>
+                    <div className="mt-2 p-2 bg-white rounded-lg border border-red-200">
+                      <p className="text-xs text-red-800 font-medium">
+                        📅 Règle: Un seul retrait par jour
+                      </p>
+                      <p className="text-xs text-red-700 mt-1">
+                        Cette limite permet de mieux gérer les transactions et assurer la sécurité de votre compte.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
@@ -2841,9 +3000,9 @@ function normalizePhone(phone) {
               
               <button
                 onClick={handleWithdrawal}
-                disabled={isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours()}
+                disabled={isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours() || hasWithdrawnToday}
                 className={`w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all ${
-                  isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours()
+                  isProcessing || !numericAmount || !selectedMethod || numericAmount < (selectedMethodData?.minAmount || 0) || !isWithinBusinessHours() || hasWithdrawnToday
                     ? "bg-gray-300 cursor-not-allowed text-gray-500"
                     : selectedMethod === "crypto"
                     ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg hover:shadow-xl"
@@ -2855,6 +3014,11 @@ function normalizePhone(phone) {
                     <Clock className="w-5 h-5 animate-spin" />
                     Traitement en cours...
                   </span>
+                ) : hasWithdrawnToday ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <AlertCircle className="w-5 h-5" />
+                    Limite quotidienne atteinte
+                  </span>
                 ) : !isWithinBusinessHours() ? (
                   <span className="flex items-center justify-center gap-2">
                     <Clock className="w-5 h-5" />
@@ -2865,12 +3029,13 @@ function normalizePhone(phone) {
                 )}
               </button>
               
-              {(!numericAmount || !selectedMethod || !isWithinBusinessHours()) && (
+              {(!numericAmount || !selectedMethod || !isWithinBusinessHours() || hasWithdrawnToday) && (
                 <p className="text-sm text-gray-500 text-center mt-3">
                   {!numericAmount && "Saisissez un montant pour continuer"}
                   {numericAmount && !selectedMethod && "Sélectionnez un moyen de retrait"}
                   {numericAmount && selectedMethod && numericAmount < (selectedMethodData?.minAmount || 0) && `Minimum ${formatAmount(selectedMethodData.minAmount)} CDF`}
-                  {numericAmount && selectedMethod && numericAmount >= (selectedMethodData?.minAmount || 0) && !isWithinBusinessHours() && "Les retraits sont disponibles de 8h00 à 16h00 "}
+                  {numericAmount && selectedMethod && numericAmount >= (selectedMethodData?.minAmount || 0) && !isWithinBusinessHours() && !hasWithdrawnToday && "Les retraits sont disponibles de 8h00 à 16h00"}
+                  {numericAmount && selectedMethod && numericAmount >= (selectedMethodData?.minAmount || 0) && isWithinBusinessHours() && hasWithdrawnToday && "Vous avez déjà effectué un retrait aujourd'hui - Prochain retrait demain"}
                 </p>
               )}
             </motion.div>
