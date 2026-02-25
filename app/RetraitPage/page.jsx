@@ -2281,7 +2281,7 @@ function normalizePhone(phone) {
             {/* Footer */}
             <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
               <p className="text-sm text-gray-500">
-                ⏱️ Dernière mise à jour : {new Date().toLocaleString('fr-FR')}
+                {/* ⏱️ Dernière mise à jour : {new Date().toLocaleString('fr-FR')} */}
               </p>
             </div>
           </motion.div>
