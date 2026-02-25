@@ -869,6 +869,66 @@ const countryCodes = [
   { code: "+257", name: "Burundi", flag: "🇧🇮" }
 ];
 
+// Composant de maintenance
+const MaintenanceBanner = ({ show }) => {
+  if (!show) return null;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 border-2 border-amber-200"
+      >
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-amber-600" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {MAINTENANCE_MESSAGE.title}
+          </h2>
+          
+          <p className="text-gray-600 mb-4">
+            {MAINTENANCE_MESSAGE.message}
+          </p>
+          
+          <div className="bg-amber-50 rounded-xl p-4 mb-6 border border-amber-200">
+            <p className="text-amber-800 text-sm">
+              {MAINTENANCE_MESSAGE.details}
+            </p>
+            <p className="text-amber-700 text-xs mt-2 font-medium">
+              ⏱️ {MAINTENANCE_MESSAGE.estimatedTime}
+            </p>
+          </div>
+          
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors cursor:pointer"
+            >
+              Retour 
+            </button>
+            
+            <button
+              onClick={() => window.open(`https://wa.me/${cleanedNumber}`, '_blank')}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+            >
+              <span>📞</span>
+              Support
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+
 export default function RetraitPage() {
   const router = useRouter();
   const [amount, setAmount] = useState("");
@@ -878,7 +938,7 @@ export default function RetraitPage() {
   const [copiedField, setCopiedField] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [transactionId, setTransactionId] = useState("");
-
+const MAINTENANCE_MODE = true;
   const [selectedCountryCode, setSelectedCountryCode] = useState("+243");
   const whatsappNumber = "+1 (450) 914-1073";
   const { user, loading: authLoading } = useAuth();
@@ -1210,7 +1270,7 @@ useEffect(() => {
           where('userId', '==', userInfo.uid),
           where('createdAt', '>=', todayStart),
           where('withdrawalId', '!=', null), // Seulement les retraits (pas les dépôts)
-          where('status', 'in', ['pending', 'completed']) // Exclure les retraits rejetés
+          // where('status', 'in', ['pending']) // Exclure les retraits rejetés
         );
 
         const withdrawalsSnapshot = await getDocs(withdrawalsQuery);
@@ -2094,14 +2154,151 @@ function normalizePhone(phone) {
     copyToClipboard(fullNumber, "wallet");
   };
 
+ if (MAINTENANCE_MODE) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-amber-50">
+        {/* Header simplifié */}
+        <div className="bg-white/80 backdrop-blur-sm border-b border-amber-200 sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors cursor:pointer"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Retour Accueil</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Contenu principal de maintenance */}
+        <div className="max-w-4xl mx-auto px-4 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-2xl border-2 border-amber-200 overflow-hidden"
+          >
+            {/* Bannière supérieure */}
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-8 text-white text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                className="w-24 h-24 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm"
+              >
+                <AlertCircle className="w-12 h-12" />
+              </motion.div>
+              <h1 className="text-4xl font-bold mb-2">🔧 Service en maintenance</h1>
+              <p className="text-amber-100 text-lg">Retraits temporairement indisponibles</p>
+            </div>
+
+            {/* Corps du message */}
+            <div className="p-8 space-y-8">
+              {/* Message principal */}
+              <div className="text-center max-w-2xl mx-auto">
+                <p className="text-gray-600 text-lg mb-4">
+                  Nous améliorons actuellement notre service de retrait pour vous offrir une meilleure expérience.
+                </p>
+                <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
+                  <div className="flex items-center justify-center gap-2 text-amber-800 font-semibold mb-3">
+                   
+                  </div>
+                  <p className="text-amber-700">
+                    Nos équipes travaillent pour rétablir le service dans les plus brefs délais.
+                    Nous vous remercions pour votre patience.
+                  </p>
+                </div>
+              </div>
+
+              {/* Options disponibles pendant la maintenance */}
+              {/* <div className="grid md:grid-cols-3 gap-4 mt-8">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-blue-50 rounded-xl p-4 text-center border border-blue-200"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Wallet className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h3 className="font-semibold text-blue-900 mb-1">Solde disponible</h3>
+                  <p className="text-xl font-bold text-blue-600">
+                    {formatAmount(accountBalance)} CDF
+                  </p>
+                  <p className="text-xs text-blue-700 mt-2">
+                    Votre solde est toujours accessible
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-green-50 rounded-xl p-4 text-center border border-green-200"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-full flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h3 className="font-semibold text-green-900 mb-1">Fonds sécurisés</h3>
+                  <p className="text-sm text-green-700">
+                    Vos fonds sont en sécurité pendant la maintenance
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-purple-50 rounded-xl p-4 text-center border border-purple-200"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h3 className="font-semibold text-purple-900 mb-1">Retour estimé</h3>
+                  <p className="text-sm text-purple-700">
+                    Service disponible dans quelques heures
+                  </p>
+                </motion.div>
+              </div> */}
+
+              {/* Section support */}
+              <div className="bg-gradient-to-r from-amber-100 to-amber-200 rounded-2xl p-6 mt-6">
+                <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-amber-900 text-lg mb-2">
+                      📞 Besoin d'aide ?
+                    </h3>
+                    <p className="text-amber-800">
+                      Notre équipe support est disponible pour répondre à vos questions.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => window.open(`https://wa.me/${cleanedNumber}`, '_blank')}
+                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <span>📱</span>
+                    Contacter le support
+                  </button>
+                </div>
+              </div>
+
+             
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
+              <p className="text-sm text-gray-500">
+                ⏱️ Dernière mise à jour : {new Date().toLocaleString('fr-FR')}
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
   return (
+
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Retour</span>
