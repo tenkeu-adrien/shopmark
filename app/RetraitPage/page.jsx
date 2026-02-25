@@ -1204,10 +1204,12 @@ useEffect(() => {
         });
 
         // Requête pour trouver les retraits d'aujourd'hui
+        // CORRECTION: Utiliser 'transactions' au lieu de 'withdrawals'
         const withdrawalsQuery = query(
-          collection(db, 'withdrawals'),
+          collection(db, 'transactions'),
           where('userId', '==', userInfo.uid),
           where('createdAt', '>=', todayStart),
+          where('withdrawalId', '!=', null), // Seulement les retraits (pas les dépôts)
           where('status', 'in', ['pending', 'completed']) // Exclure les retraits rejetés
         );
 
